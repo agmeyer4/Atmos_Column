@@ -1,0 +1,498 @@
+'''
+Module: ac_funcs.py
+Author: Aaron G. Meyer (agmeyer4@gmail.com)
+Description: This module contains functions and classes for doing atmospheric column analysis as part of the 
+atmos_column package. Included are functions for loading and transformign data from the EM27, dealing with slant columns,
+loading HRRR data for terrain information, and producing receptor files for running STILT
+'''
+
+#Import Necessary Modules
+import pandas as pd
+import numpy as np
+import os
+import datetime
+import itertools
+import pytz
+import pysolar.solar as solar
+from geographiclib.geodesic import Geodesic
+from herbie import Herbie
+import xarray as xr
+
+#Functions 
+def format_datetime(year,month,day,hour,minute,second,tz='US/Mountain'):
+    '''Formats an input datetime from input values and returns both a string, as well as a timezone aware object
+    
+    Args:
+    year (int) : year of measurment
+    month (int) : month of measurment
+    day (int) : day of measurment
+    hour (int) : hour of measurement
+    minute (int) : minute of measurement
+    second (float) : second of measurement
+    tz (str) : timezone of measurement from the pytz.timezone available options (default = 'US/Mountain')
+
+    Returns: 
+    dt_str (str) : datetime of input represented as a string
+    tz_dt (datetime.datetime object) : timezone aware datetime.datetime object
+    '''
+
+    dt_str = f'{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second}' #write the string
+    dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S.%f') #convert it to a datetime
+    tz_dt = pytz.timezone('US/Mountain').localize(dt) #localize to the correct timezone
+    return dt_str,tz_dt
+
+def get_fulldaystr_from_oofname(oof_filename):
+    '''Gets datetime strings spanning the entire day, based on an oof filename
+    
+    Args:
+    oof_filename (str) : name of an oof file with format xxYYYYmmdd*.oof
+    
+    Returns:
+    dt1_str (str) : datetime string of form "YYYY-mm-dd 00:00:00 (first second of day)
+    dt2_str (str) : datetime string of form "YYYY-mm-dd 23:59:59 (last second of day)
+    '''
+
+    datestring = f'{oof_filename[2:6]}-{oof_filename[6:8]}-{oof_filename[8:10]}' #parse the date from the oof file
+    dt1_str = f'{datestring} 00:00:00' #get the datetime string of the first time of the day
+    dt2_str = f'{datestring} 23:59:59' #get the datetime string of the last time of the day
+    return dt1_str,dt2_str
+
+def haversine(lat1,lon1,lat2,lon2):
+    '''Calculate the great circle distance between two points on the earth 
+    
+    Args:
+    lat1 (float) : longitude of first point
+    lon1 (float) : latitude of first point
+    lat2 (float) : longitude of second point
+    lon2 (float) : latitude of second point
+
+    Returns:
+    distance (float) : distance in meters along the great circle between the two points
+    '''
+
+    # convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
+    c = 2 * np.arcsin(np.sqrt(a)) 
+    r = 6371 # Radius of earth in kilometers. Use 3956 for miles
+    return c * r * 1000 #convert to meters
+
+def get_nearest_from_grid(hrrr_grid_df,pt_lat,pt_lon,colname_to_extract='HGT_P0_L1_GLC0',lat_name='gridlat_0',lon_name='gridlon_0'):
+    '''Input a lat/lon, return a value from a dataframe created from an xarray with lat/lon grid
+    
+    Args: 
+    hrrr_grid_df (pd.DataFrame) : pandas dataframe, usually built using xarray.to_dataframe(), representing a grid of lat/lons and associated values
+    pt_lat (float) : point of interest latitude
+    pt_lon (float) : point of interest longitude
+    colname_to_extract (str) : column name of the hrrr_grid_df holding the value we want to extract at the nearest lat/lon. Default "HGT_P0_L1_GLC0" which is surface height
+    lat_name (str) : name of the latitude column (attribute) in the hrrr_grid_df
+    lon_name (str) : name of the longitude column (attribute) in the hrrr_grid_df
+    '''
+
+    if (pd.isna(pt_lon))|(pd.isna(pt_lat)): #if the input point has a nan, return nan
+        return np.nan
+    df = hrrr_grid_df.loc[(hrrr_grid_df[lon_name]>=pt_lon-.1)&
+                (hrrr_grid_df[lon_name]<=pt_lon+.1)&
+                (hrrr_grid_df[lat_name]>=pt_lat-.1)&
+                (hrrr_grid_df[lat_name]<=pt_lat+.1)] #filter df to 0.1 degrees around the point to speed up processs
+    if len(df.dropna()) == 0: #if in creating the df, all the points were dropped, we're outside the bounds of the grid. Return nan
+        print('Point is outside the bounds of the HRRR grid')
+        return np.nan
+    df['dist'] = np.vectorize(haversine)(df[lat_name],df[lon_name],pt_lat,pt_lon) #add a distance column for each subpoint using haversine
+    idx = df['dist'].idxmin() #find the minimum distance
+    return df.loc[idx][colname_to_extract] #return the value requested
+
+def load_singletime_hgtdf(inst_lat,inst_lon,inst_zasl,tz_dt,z_ail_list):
+    '''Create a slant dataframe for a single datetime
+    
+    Args:
+    inst_lat (float) : latitude of the instrument
+    inst_lon (float) : longitude of the instrument
+    inst_zasl (float) : elevation above sea level of the instrument, in meters
+    tz_dt (datetime.datetime) : timezone-aware datetime of the measurment
+    z_ail_list (list of floats/ints) : list of receptor z elevations above the instrument level (ail) in meters
+    '''
+
+    z_asl_list = [x+inst_zasl for x in z_ail_list] #use the instrument level to get the elevation of the receptor points above sea level
+    pt_lats = [] #initialize a list of lats
+    pt_lons = [] #intitialize a list of lons
+    for z in z_ail_list: #loop through the list of z heights above the instrument level. This is the vertical component of the geometry, the rest comes from the sun position. 
+        pt_lat,pt_lon = slant_lat_lon(inst_lat,inst_lon,tz_dt,z) #KEY FUNCTION: gets the lat/lon of a point along the slant column, z meters above the instrument, at the input datetime
+        pt_lats.append(pt_lat) #append the lat of the receptor point
+        pt_lons.append(pt_lon) #append the lon of the receptor point
+    slant_df = pd.DataFrame({'z_ail':z_ail_list,'receptor_zasl':z_asl_list,'receptor_lat':pt_lats,'receptor_lon':pt_lons}) #create the dataframe of points along the slant column
+    return slant_df
+
+def slant_lat_lon(inst_lat,inst_lon,dt,z_above_inst):
+        '''Gets the lat/lon coordinates of a slant column given instrument position, datetime, and desired z height above the instrument
+        
+        Args:
+        inst_lat (float) : decimal latitude of the instrument
+        inst_lon (float) : decimal longitude of the instrument
+        dt (Timestamp) : datetime of the measurment
+        z_above_inst (float) : z level above the instrument in meters
+        
+        Returns: 
+        new_lat (float) : decimal latitude of the point on the solar slant column at the given z
+        new_lon (float) : decimal longitude of the point on the solar slant column at the given z
+        '''
+        
+        try:
+            sol_zen_deg = 90-solar.get_altitude(inst_lat,inst_lon,dt) #tries to handle the datetime
+        except Exception as e:
+            #print(e) 
+            dt = dt.to_pydatetime() #if it's a pandas timestamp, convert it to a datetime.datetime
+            sol_zen_deg = 90-solar.get_altitude(inst_lat,inst_lon,dt) #the solar zenith angle (solar.get_altitude() gives the angle from horizontal, not zenith, so subtract from 90
+        if sol_zen_deg>90: #when the solar zenith angle is greater than 90, the sun is below the horizon and the algorithm breaks down
+            return np.nan,np.nan #so just return nans
+        sol_zen_rad = np.deg2rad(sol_zen_deg) #convert to radians for use in the tangent function
+        sol_azi_deg = solar.get_azimuth(inst_lat,inst_lon,dt) #get the solar azimuth
+        arc_dist = z_above_inst * np.tan(sol_zen_rad) #get the horizontal distance given the height above the instrument using the correct geometry
+        geod = Geodesic.WGS84 #set up the geodesic for dealing with earth being an ellipse
+        new_point = geod.Direct(inst_lat,inst_lon,sol_azi_deg,arc_dist) #calculate the new point on earth's ellipsoid using initial lat/lon, azimuth (bearing) and distance
+        new_lat = new_point['lat2'] #pull out and return the new point
+        new_lon = new_point['lon2']
+        #print(f'z={z_above_inst} || zenith_deg={sol_zen_deg} || azim_deg={sol_azi_deg} || dist={arc_dist} || newlat={new_lat} || newlong={new_lon}')
+        return new_lat,new_lon
+
+def add_sh_and_agl(slant_df,hrrr_grid_df):
+    '''Add columns for the surface heights, receptor height above ground level, and boolean column if the receptor height is actually ABOVE the ground (nonnegative)
+    
+    Args:
+    slant_df (pd.DataFrame) : pandas dataframe of slant data. Must have columns "receptor_lat", "receptor_lon", and "receptor_zasl"
+    hrrr_grid_df (pd.DataFrame) : pandas dataframe of the hrrr grid for surface elevations (needs HGT_P0_L1_GLC0)
+    
+    Returns:
+    slant_df (pd.DataFrame) : the same input dataframe with three new columns --
+                              receptor_shasl = surface height at the receptor lat/lon in meters above sea level
+                              receptor_zagl = height of the receptor above the ground level at its lat/lon
+                              receptor_z_is_agl = boolean column where true means the receptor is actually above the ground
+    '''
+
+    slant_df['receptor_shasl'] = slant_df.apply(lambda row: get_nearest_from_grid(hrrr_grid_df,row['receptor_lat'],row['receptor_lon']),axis=1) #get the nearest surface height from the hrrr grid
+    slant_df['receptor_zagl'] = slant_df.apply(lambda row: row['receptor_zasl'] - row['receptor_shasl'],axis = 1) #subtract the height of the receptor from the surface height
+    slant_df['receptor_z_is_agl'] = slant_df['receptor_zagl'].gt(0) #add the boolean column for if the point is above the ground
+    return slant_df
+
+def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
+    '''Creates a slant dataframe from a dataframe loaded from an oof file
+    
+    Args: 
+    oof_df (pd.DataFrame) : pandas dataframe loaded from an oof file (probably using oof_manager.df_from_oof()). Must have columns "inst_lat", "inst_lon", "inst_zasl", "spectrum" 
+    z_ail_list (list of floats/ints) : list of receptor z elevations above the instrument level (ail) in meters
+    hrrr_elev_df (pd.DataFrame) : pandas dataframe of the hrrr grid for surface elevations (needs HGT_P0_L1_GLC0)
+
+    Returns:
+    multi_df (pd.DataFrame) : a multi-indexed dataframe with slant data for all of the z values input. Index level 0 is the datetime, index level 1 is the z_ail 
+    '''
+    
+    dt_tz_list = list(oof_df.index) #uses the index of the oof_df to create a list of all the measurement datetimes (timezone-aware) 
+    combined_tuples = list(itertools.product(dt_tz_list,z_ail_list)) #create a combined tuple for creating the multiindex, with item 0=datetime, item 1=z_ail
+    
+    #initialize a bunch of lists to build the dataframe
+    inst_lats = [] 
+    inst_lons = []
+    inst_zasls = []
+    spectrum_names = []
+    receptor_lats = []
+    receptor_lons = []
+    receptor_zasls = []
+
+    print('Adding receptor lat/lons along the slant column')
+    for dt,zail in combined_tuples: #loop through the datetime, zail tuples
+        #Get the lat, lon, zasl, and spectrum name from the oof_df
+        inst_lat = oof_df.loc[dt]['inst_lat'] 
+        inst_lon = oof_df.loc[dt]['inst_lon']
+        inst_zasl = oof_df.loc[dt]['inst_zasl']
+        spectrum_name = oof_df.loc[dt]['spectrum']
+
+        #Get the slant column for each of those points
+        receptor_lat,receptor_lon = slant_lat_lon(inst_lat,inst_lon,dt,zail)
+        receptor_zasl = zail+inst_zasl #add the elevation above sea level by adding above instrument level to the instrument elevation above sea level
+
+        #Append all of the calculated or pulled values to the preallocated lists
+        inst_lats.append(inst_lat)
+        inst_lons.append(inst_lon)
+        inst_zasls.append(inst_zasl)
+        spectrum_names.append(spectrum_name)
+        receptor_lats.append(receptor_lat)
+        receptor_lons.append(receptor_lon)
+        receptor_zasls.append(receptor_zasl)
+
+    multi_df = pd.DataFrame(index = pd.MultiIndex.from_tuples(combined_tuples,names=['dt','z_ail'])) #create the multiindexed dataframe, using the combined tuples
+    
+    #populate the dataframe with the values calculated above
+    multi_df['inst_lat'] = inst_lats 
+    multi_df['inst_lon'] = inst_lons
+    multi_df['inst_zasl'] = inst_zasls
+    multi_df['spectrum'] = spectrum_names
+    multi_df['receptor_lat'] = receptor_lats
+    multi_df['receptor_lon'] = receptor_lons
+    multi_df['receptor_zasl'] = receptor_zasls
+
+    print('Adding surface height and receptor elevation above ground level')
+    multi_df = add_sh_and_agl(multi_df,hrrr_elev_df) #Add the receptor surface heights and elevations above ground level
+
+    return multi_df
+
+class oof_manager:
+    '''Class to manage getting data from oof files'''
+
+    def __init__(self,oof_data_folder,timezone):
+        '''
+        Args: 
+        oof_data_folder (str) : path to the folder where oof data is stored
+        timezone (str) : timezone for the measurments
+        '''
+        self.oof_data_folder = oof_data_folder
+        self.timezone = timezone
+
+    def load_oof_df_inrange(self,dt1_str,dt2_str,oof_filename,filter_flag_0=False):
+        '''Loads a dataframe from an oof file for datetimes between the input values
+        
+        Args:
+        dt1_str (str) : string for the start time of the desired range of form "YYYY-mm-dd HH:MM:SS" 
+        dt2_str (str) : string for the end time of the desired range of form "YYYY-mm-dd HH:MM:SS" 
+        oof_filename (str) : name of the oof file to load
+        filter_flag_0 (bool) : True will filter the dataframe to rows where the flag column is 0 (good data), false returns all the data
+
+        Returns:
+        df (pd.DataFrame) : pandas dataframe loaded from the oof file, formatted date, and column names       
+        '''
+
+        #Get timezone aware datetimes from the input strings
+        dt1 = self.tzdt_from_str(dt1_str) 
+        dt2 = self.tzdt_from_str(dt2_str)
+
+        df = self.df_from_oof(oof_filename) #load the oof file to a dataframe
+        df = self.df_dt_formatter(df) #format the dataframe to the correct datetime and column name formats
+        df = df.loc[(df.index>=dt1)&(df.index<=dt2)] #filter the dataframe between the input datetimes
+        if filter_flag_0: #if we want to filter by flag
+            df = df.loc[df['flag'] == 0] #then do it!
+        return df
+
+    def tzdt_from_str(self,dt_str):
+        '''Apply the inherent timezone of the class to an input datetime string
+        
+        Args:
+        dt_str (str) : datetime string of form "YYYY-mm-dd HH:MM:SS" 
+        
+        Returns:
+        dt (datetime.datetime) : timezone aware datetime object, with timezone determined by the class
+        '''
+
+        dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S') #create the datetime
+        dt = pytz.timezone(self.timezone).localize(dt) #apply the timezone
+        return dt
+
+    def df_from_oof(self,filename):
+        '''Load a dataframe from an oof file
+        
+        Args:
+        filename (str) : name of the oof file (not the full path)
+        
+        Returns:
+        df (pd.DataFrame) : a pandas dataframe loaded from the em27 oof file with applicable columns added/renamed'''
+        oof_full_filepath = os.path.join(self.oof_data_folder,filename) #get the full filepath using the class' folder path
+        df = pd.read_csv(oof_full_filepath,header = self.read_oof_header_line(oof_full_filepath),delim_whitespace=True,skip_blank_lines=False) #read it as a csv, parse the header
+        df['inst_zasl'] = df['zobs(km)']*1000 #add the instrument z elevation in meters above sea level (instead of km)
+        df['inst_lat'] = df['lat(deg)'] #rename the inst lat column
+        df['inst_lon'] = df['long(deg)'] #rename the inst lon column 
+        return df
+
+    def read_oof_header_line(self,full_file_path):
+        '''Reads and parses the header line of an oof file
+        
+        Args: 
+        full_file_path (str) : full path to an oof file we want to read
+        
+        Returns:
+        header (list) : list of column names to use in the header 
+        '''
+
+        with open(full_file_path) as f: #open the file
+            line1 = f.readline() #read the first line
+        header = int(line1.split()[0])-1 #plit the file and get the header
+        return header
+
+    def parse_oof_dt(self,year,doy,hr_dec):
+        '''Get a real datetime from an oof style datetime definition
+        
+        Args:
+        year (int) : year
+        doy (int) : day of the year 
+        hr_dec (float) : decimal hour of the day
+        
+        Returns:
+        dt (pandas.datetime) : pandas datetime object gleaned from the inputs
+        '''
+
+        dt = pd.to_datetime(f'{int(year)} {int(doy)}',format='%Y %j') + datetime.timedelta(seconds = hr_dec*3600)
+        return dt
+
+    def df_dt_formatter(self,df):
+        '''Format a loaded oof dataframe to have the correct datetime as an index
+
+        Assumes that the oof timestamps are in UTC
+        
+        Args: 
+        df (pd.DataFrame) : dataframe loaded using df_from_oof() 
+
+        Returns:
+        df (pd.DataFrame) : reformatted dataframe with datetime as the index, and converted to a timezone aware object. 
+        '''
+
+        df['dt'] = np.vectorize(self.parse_oof_dt)(df['year'],df['day'],df['hour']) #set the datetime column by parsing the year, day and hour columns
+        df = df.set_index('dt',drop=True).sort_index() #set dt as the index
+        df.index = df.index.tz_localize('UTC').tz_convert(self.timezone) #localize and convert the timezone
+        return df
+
+    def get_sorted_oof(self):
+        '''Get a list of oof files in the oof data folder, sorted so they are in chron order
+        
+        Returns:
+        files (list) : list of files ending in oof in the data folder
+        '''
+
+        files = [] #initialize the list
+        for file in sorted(os.listdir(self.oof_data_folder)): #loop through the sorted filenames in the oof data folder
+            if file.endswith('oof'): #if the file ends in oof
+                files.append(file) #add it to the list
+        return files
+
+    def get_oof_in_range(self,dt1,dt2):
+        '''Finds the oof files in the data folder that fall between two input datetimes
+        
+        Args:
+        dt1 (str or datetime.datetime) : start datetime of the interval we want to find files within
+        dt2 (str or datetime.datetime) : end datetime of the interfal we want to find files within
+        
+        Returns:
+        files in range (list) : list of oof filenames that fall within the datetime range input
+        '''
+
+        if type(dt1)==str: #if the input datetimes are strings instead of datetimes
+            dt1 = self.tzdt_from_str(dt1) #convert to timezone aware datetimes
+            dt2 = self.tzdt_from_str(dt2)
+
+        daystrings_in_range = [] #initialize the day strings in the range
+        delta_days = dt2.date()-dt1.date() #get the number of days delta between the end and the start
+        for i in range(delta_days.days +1): #loop through that number of days 
+            day = dt1.date() + datetime.timedelta(days=i) #get the day by incrementing by i (how many days past the start)
+            daystrings_in_range.append(day.strftime('%Y%m%d')) #append a string of the date (YYYYmmdd) to match with filenames
+
+        files_in_range = [] #initilize the filenames that will be in the range
+        for file in self.get_sorted_oof(): #loop through the sorted oof files in the data folder
+            for daystring_in_range in daystrings_in_range: # loop through the daystrings that are in the range
+                if daystring_in_range in file: #if the daystring is in the filename, 
+                    files_in_range.append(file) #append it. Otherwise keep going
+        
+        return files_in_range
+
+class em27_slant_handler:
+    '''Class to handle getting EM27 slant column receptors'''
+
+    def __init__(self,hrrr_subset_path,oof_data_folder,output_path,hrrr_subset_datestr = '2023-01-01'):
+        '''
+        Args: 
+        hrrr_subset_path (str) : folder path for where hrrr surface heights subset grib2 files should be stored
+        oof_data_folder (str) : folder path where oof data is stored
+        output_path (str) : path to output receptor files, etc
+        hrrr_subset_datestring (str) : date string ("YYYY-mm-dd") representing the day to pull hrrr data from, if no subset file exists
+        '''
+
+        self.hrrr_subset_path = hrrr_subset_path
+        self.oof_data_folder = oof_data_folder
+        self.output_path = output_path
+        self.hrrr_subset_datestr = hrrr_subset_datestr
+
+    def run_manual(self,inst_lat,inst_lon,inst_zasl,z_ail_list,year,month,day,hour,minute,second,tz):
+        '''A master run method to get a slant dataframe based on manual inputs
+        
+        Args:
+        inst_lat (float) : latitude of the intsrument
+        inst_lon (float) : longitude of the instrument
+        inst_zasl (float) : z elevation (in meters above sea level) of the instrument
+        z_ail_list (list) : receptor levels above the instrument, in meters
+        year (int) : year of measurment
+        month (int) : month of measurment
+        day (int) : day of measurment
+        hour (int) : hour of measurement
+        minute (int) : minute of measurement
+        second (float) : second of measurement
+        tz (str) : timezone of measurement from the pytz.timezone available options (default = 'US/Mountain')
+
+        Returns: 
+        slant_df (pandas.DataFrame()) : dataframe with the receptor locations and elevation details for the slant column 
+        '''
+
+        dt_str,tz_dt = format_datetime(year,month,day,hour,minute,second,tz=tz) #format the datetime
+        slant_df = load_singletime_hgtdf(inst_lat,inst_lon,inst_zasl,tz_dt,z_ail_list) #create the dataframe from the inputs
+        try:
+            self.hrrr_elev_df #if the hrrr surface height elevation exists, just keep going
+        except:
+            self.load_hrrr_surf_hgts() #if it doesn't exist yet, load it
+        slant_df = add_sh_and_agl(slant_df,self.hrrr_elev_df) #apply the surface heights and above ground levels to the created dataframe
+        return slant_df
+    
+    def run_singleday_fromoof(self,oof_filename,dt1_str,dt2_str,tz,z_ail_list):
+        '''Gets a multiindexed slant dataframe using an input oof file
+        
+        Args:
+        oof_filename (str) : name of the oof file to load
+        dt1_str (str) : **start datetime of interval to create dataframe for. If dt1_str=="all", will do the whole day
+        dt2_str (str) : end datetime of the interval to create dataframe for. Gets overwritten by "YYYY-mm-dd 23:59:59 if dt1_str=="all" 
+        tz (str) : timezone of measurment location
+        z_ail_list (list) : list of receptor heights above the instrument level, in meters
+        '''
+
+        try: 
+            self.my_oof_manager #if we have the oof manager attribute, keep going
+        except:
+            self.my_oof_manager = oof_manager(self.oof_data_folder,tz) #if we don't, create it
+        try:
+            self.hrrr_elev_df #if the surface heights dataframe exists, keep going
+        except:
+            self.load_hrrr_surf_hgts() #if not, create it 
+        if dt1_str == 'all': #if we want the whole day, dt1_str should be 'all' 
+            dt1_str,dt2_str = get_fulldaystr_from_oofname(oof_filename)  #in this case, get the full day's range and retrieve those datetimes based on the oof filename (has date in name) 
+        oof_df = self.my_oof_manager.load_oof_df_inrange(dt1_str,dt2_str,oof_filename,filter_flag_0=True) #load the oof dataframe
+        slant_df_from_oof = get_slant_df_from_oof(oof_df,z_ail_list,self.hrrr_elev_df) #get the slant dataframe from the loaded oof dataframe
+        return slant_df_from_oof
+
+    def load_hrrr_surf_hgts(self):
+        '''Loads the surface height dataframe, or downloads then loads if it doesn't exist yet
+        
+        Returns: 
+        hrrr_elev_xarr_ds (xarray.dataset) : xarray dataset from a grib2 file loaded from hrrr
+        hrrr_elev_df (pd.DataFrame) : pandas dataframe which is just the xarry converted to a dataframe
+        '''
+
+        hrrr_subset_datefolder = os.path.join(self.hrrr_subset_path,f'{self.hrrr_subset_datestr[0:4]}{self.hrrr_subset_datestr[5:7]}{self.hrrr_subset_datestr[8:10]}') #finds the hrrr datafolder (herbie creates a date subfolder and puts it in there)
+        try: #try to list the files in the datafolder
+            files = os.listdir(hrrr_subset_datefolder)
+        except FileNotFoundError: #if there isn't a folder, there wasn't a hrrr subset grib2 file downloaded, so download it
+            print(f'No subset data in the date given. Running retrieve_hrrr_subset to get the data for {self.hrrr_subset_datestr}.')
+            self.retrieve_hrrr_subset() #retrieve the hrrr surface height grib2 subset for the day self.hrrr_subset_datestr
+            files = os.listdir(hrrr_subset_datefolder) #list the files in the hrrr subset folder
+        if len(files)>1: #if there are more than one file in this folder, it gets confused, should only have one. This could be a bug down the line
+            raise Exception(f'Multiple subset files in {hrrr_subset_datefolder}')
+        else: #if noth though
+            hrrr_subset_full_filename = os.path.join(hrrr_subset_datefolder,files[0]) #get the full filename with the (singular) file in the full folder path 
+
+        self.hrrr_elev_xarr_ds = xr.open_dataset(hrrr_subset_full_filename,engine='pynio') #load the hrrr grib2 file as an xarray dataset
+        self.hrrr_elev_df = self.hrrr_elev_xarr_ds['HGT_P0_L1_GLC0'].to_dataframe().reset_index() #convert it to a dataframe
+        return self.hrrr_elev_xarr_ds,self.hrrr_elev_df
+
+    def retrieve_hrrr_subset(self):
+        '''Gets a hrrr subset for surface height
+        
+        Doesn't return anythin, but uses the hrrr_subset_datestring to retrieve the correct subset using herbie
+        '''
+        H = Herbie(self.hrrr_subset_datestr,model='hrrr',product='sfc',fxx=0,save_dir=f'{self.hrrr_subset_path}/..') #setup the herbie subset
+        H.download('HGT')   #download the height dataset
+

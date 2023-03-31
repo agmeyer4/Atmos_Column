@@ -1,0 +1,21 @@
+name: atmos_column
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - scipy
+  - geopandas
+  - numpy
+  - pandas
+  - cartopy
+  - matplotlib
+  - xarray
+  - scikit-learn
+  - jupyterlab
+  - ipykernel
+  - geographiclib
+  - herbie-data
+  - pynio
+  - pytz
+  - pysolar
+  - plotly
