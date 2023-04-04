@@ -239,6 +239,21 @@ def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
 
     return multi_df
 
+def check_paths(path_dict):
+    for key,path in path_dict.items():
+        if not os.path.isdir(path):
+            raise FileNotFoundError(f'Path not found for {key} at {path} Check to ensure your paths are correctly configured.')
+        if key == 'hrrr_data_folder':
+            if not os.path.isdir(os.path.join(path,'subsets')):
+                os.mkdir(os.path.join(path,'subsets'))
+        if key == 'output_folder':
+            if not os.path.isdir(os.path.join(path,'receptors')):
+                os.mkdir(os.path.join(path,'receptors'))
+            if not os.path.isdir(os.path.join(path,'receptors','for_stilt')):
+                os.mkdir(os.path.join(path,'receptors','for_stilt'))
+            if not os.path.isdir(os.path.join(path,'receptors','for_log')):
+                os.mkdir(os.path.join(path,'receptors','for_log'))
+
 class oof_manager:
     '''Class to manage getting data from oof files'''
 
@@ -472,7 +487,7 @@ class em27_slant_handler:
         hrrr_elev_df (pd.DataFrame) : pandas dataframe which is just the xarry converted to a dataframe
         '''
 
-        hrrr_subset_datefolder = os.path.join(self.hrrr_subset_path,f'{self.hrrr_subset_datestr[0:4]}{self.hrrr_subset_datestr[5:7]}{self.hrrr_subset_datestr[8:10]}') #finds the hrrr datafolder (herbie creates a date subfolder and puts it in there)
+        hrrr_subset_datefolder = os.path.join(self.hrrr_subset_path,'hrrr',f'{self.hrrr_subset_datestr[0:4]}{self.hrrr_subset_datestr[5:7]}{self.hrrr_subset_datestr[8:10]}') #finds the hrrr datafolder (herbie creates a date subfolder and puts it in there)
         try: #try to list the files in the datafolder
             files = os.listdir(hrrr_subset_datefolder)
         except FileNotFoundError: #if there isn't a folder, there wasn't a hrrr subset grib2 file downloaded, so download it
@@ -493,6 +508,12 @@ class em27_slant_handler:
         
         Doesn't return anythin, but uses the hrrr_subset_datestring to retrieve the correct subset using herbie
         '''
-        H = Herbie(self.hrrr_subset_datestr,model='hrrr',product='sfc',fxx=0,save_dir=f'{self.hrrr_subset_path}/..') #setup the herbie subset
+        H = Herbie(self.hrrr_subset_datestr,model='hrrr',product='sfc',fxx=0,save_dir=f'{self.hrrr_subset_path}') #setup the herbie subset
         H.download('HGT')   #download the height dataset
 
+def main():
+    print('helloworld')
+    pass
+
+if __name__ == "__main__":
+   main()
