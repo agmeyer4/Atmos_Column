@@ -63,7 +63,7 @@ def create_mapbox_nosh(df,dt_str):
         )
     return mb
 
-def create_slant_plots(df,center_lat,center_lon,zoom=8,dt_str='',hourly_only=True):
+def create_slant_plots(df,center_lat,center_lon,zoom=8,dt_str='',plot_interval=0):
     '''Creates a map with slant profiles using either a multiindex dataframe or a single dataframe with the correct column configuration
     
     Args:
@@ -80,7 +80,7 @@ def create_slant_plots(df,center_lat,center_lon,zoom=8,dt_str='',hourly_only=Tru
     '''
     
     fig = go.Figure() #initialize the fig
-    oldhour = 0
+    oldET = 0
     #check if it's a multiindex dataframe
     if isinstance(df.index,pd.MultiIndex):  #if it is, need to loop through it
         for dt,newdf in df.groupby(level=0): #groupby the first index -- datetime
@@ -88,13 +88,11 @@ def create_slant_plots(df,center_lat,center_lon,zoom=8,dt_str='',hourly_only=Tru
             plotdf = newdf.droplevel(0).reset_index() #get the new dataframe at that datetime level and reset the index so z_asl is a column not an index
             if len(plotdf.dropna())==0: #if the sun is below the horizon, the dataframe at that time will be empty. We don't want to clutter the legend so just skip plotting those
                 continue
-            if hourly_only:
-                newhour = dt.hour
-                if newhour>oldhour:
-                    add_slant_trace(fig,plotdf,dt_str)
-                    oldhour=newhour
-            else:
-                add_slant_trace(fig,plotdf,dt_str) #add the slant trace for that df
+            newET = dt.timestamp()
+            if (newET-oldET)>plot_interval:
+                add_slant_trace(fig,plotdf,dt_str)
+                oldET=newET
+
     else: #if it's just a single indexed dataframe
         add_slant_trace(fig,df,dt_str) #just add that slant trance
  
