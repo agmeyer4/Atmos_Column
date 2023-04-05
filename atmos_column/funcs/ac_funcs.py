@@ -21,10 +21,16 @@ import xarray as xr
 #Functions     
 
 def write_df_to_rec_csv(df,path,fname,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt'):
+    print('Writing df to receptor csv')
     df1 = df.copy()
     df1 = df1.reset_index()
     df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times'})
     df1 = df1[['run_times','lati','long','zagl']]
+    df1['lati'] = df1['lati'].round(4)
+    df1['long'] = df1['long'].round(4)
+    df1['zagl'] = df1['zagl'].round(2)
+    df1['run_times'] = df1['run_times'].round('S')
+    df1['run_times'] = df1['run_times'].dt.tz_localize(None)
     df1.to_csv(os.path.join(path,fname),index=False)
 
 def format_datetime(year,month,day,hour,minute,second,tz='US/Mountain'):
@@ -525,17 +531,18 @@ def main():
     #Define the paths to important folders. Use full paths: doesn't like the "~" notation for $HOME
 
     dt1_str = '2022-06-16 18:00:00' #start datetime
-    dt2_str = '2022-06-16 18:05:00' #end datetime
+    dt2_str = '2022-06-16 18:25:00' #end datetime
     timezone='UTC' #timezone of collected data. for now, this should be UTC as the EM27 stores data in UTC
 
-    # folder_paths = {'column_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2',
-    #                 'hrrr_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/hrrr',
-    #                 'output_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output',
-    #                 'stilt_wd':'/uufs/chpc.utah.edu/common/home/u0890904/STILT_Projects'}
-    folder_paths = {'column_data_folder':'/Users/agmeyer4/Google Drive/My Drive/Documents/LAIR/Data/SLC_EM27_ha_2022_oof_v2/',
-                    'hrrr_data_folder':'/Users/agmeyer4/LAIR_1/Data/hrrr',
-                    'output_folder':'/Users/agmeyer4/LAIR_1/Atmos_Column/output',
-                    'stilt_wd':'/Users/agmeyer4/LAIR_1/STILT'}
+    folder_paths = {'column_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2',
+                    'hrrr_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/hrrr',
+                    'output_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output',
+                    'stilt_wd':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT'}
+
+    # folder_paths = {'column_data_folder':'/Users/agmeyer4/Google Drive/My Drive/Documents/LAIR/Data/SLC_EM27_ha_2022_oof_v2/',
+    #                 'hrrr_data_folder':'/Users/agmeyer4/LAIR_1/Data/hrrr',
+    #                 'output_folder':'/Users/agmeyer4/LAIR_1/Atmos_Column/output',
+    #                 'stilt_wd':'/Users/agmeyer4/LAIR_1/STILT'}
 
     hrrr_subset_datestr='2022-07-01 00:00'
     z_ail_list = [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500]
