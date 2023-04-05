@@ -18,7 +18,15 @@ from geographiclib.geodesic import Geodesic
 from herbie import Herbie
 import xarray as xr
 
-#Functions 
+#Functions     
+
+def write_df_to_rec_csv(df,path,fname,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt'):
+    df1 = df.copy()
+    df1 = df1.reset_index()
+    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times'})
+    df1 = df1[['run_times','lati','long','zagl']]
+    df1.to_csv(os.path.join(path,fname),index=False)
+
 def format_datetime(year,month,day,hour,minute,second,tz='US/Mountain'):
     '''Formats an input datetime from input values and returns both a string, as well as a timezone aware object
     
@@ -38,7 +46,7 @@ def format_datetime(year,month,day,hour,minute,second,tz='US/Mountain'):
 
     dt_str = f'{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second}' #write the string
     dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S.%f') #convert it to a datetime
-    tz_dt = pytz.timezone('US/Mountain').localize(dt) #localize to the correct timezone
+    tz_dt = pytz.timezone(tz).localize(dt) #localize to the correct timezone
     return dt_str,tz_dt
 
 def get_fulldaystr_from_oofname(oof_filename):
@@ -202,8 +210,10 @@ def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
     receptor_lons = []
     receptor_zasls = []
 
-    print('Adding receptor lat/lons along the slant column')
+    print(f'Adding receptor lat/lons along the slant column')
+    i=1
     for dt,zail in combined_tuples: #loop through the datetime, zail tuples
+        i+=1
         #Get the lat, lon, zasl, and spectrum name from the oof_df
         inst_lat = oof_df.loc[dt]['inst_lat'] 
         inst_lon = oof_df.loc[dt]['inst_lon']
@@ -512,8 +522,35 @@ class em27_slant_handler:
         H.download('HGT')   #download the height dataset
 
 def main():
-    print('helloworld')
-    pass
+    #Define the paths to important folders. Use full paths: doesn't like the "~" notation for $HOME
+
+    dt1_str = '2022-06-16 18:00:00' #start datetime
+    dt2_str = '2022-06-16 18:05:00' #end datetime
+    timezone='UTC' #timezone of collected data. for now, this should be UTC as the EM27 stores data in UTC
+
+    # folder_paths = {'column_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2',
+    #                 'hrrr_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/hrrr',
+    #                 'output_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output',
+    #                 'stilt_wd':'/uufs/chpc.utah.edu/common/home/u0890904/STILT_Projects'}
+    folder_paths = {'column_data_folder':'/Users/agmeyer4/Google Drive/My Drive/Documents/LAIR/Data/SLC_EM27_ha_2022_oof_v2/',
+                    'hrrr_data_folder':'/Users/agmeyer4/LAIR_1/Data/hrrr',
+                    'output_folder':'/Users/agmeyer4/LAIR_1/Atmos_Column/output',
+                    'stilt_wd':'/Users/agmeyer4/LAIR_1/STILT'}
+
+    hrrr_subset_datestr='2022-07-01 00:00'
+    z_ail_list = [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500]
+    ESH = em27_slant_handler(os.path.join(folder_paths['hrrr_data_folder'],'subsets'),
+                            folder_paths['column_data_folder'],
+                            folder_paths['output_folder'],
+                            hrrr_subset_datestr=hrrr_subset_datestr)
+    my_oof_manager = oof_manager(folder_paths['column_data_folder'],timezone)
+    oof_files_inrange = my_oof_manager.get_oof_in_range(dt1_str,dt2_str)
+    print(f'Found {len(oof_files_inrange)} oof files in dt range. Analyzing...')
+    for oof_filename in oof_files_inrange:
+        print(f'Creating slant dataframe for {oof_filename}')
+        slant_df = ESH.run_singleday_fromoof(oof_filename,dt1_str,dt2_str,timezone,z_ail_list)
+
+    write_df_to_rec_csv(slant_df,os.path.join(folder_paths['output_folder'],'receptors','for_stilt'),'rec1.txt')
 
 if __name__ == "__main__":
    main()
