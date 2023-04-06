@@ -20,8 +20,8 @@ import xarray as xr
 
 #Functions     
 
-def write_df_to_rec_csv(df,path,fname,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt'):
-    print('Writing df to receptor csv')
+def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt'):
+    print('Changing slant df to receptor style df')
     df1 = df.copy()
     df1 = df1.reset_index()
     df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times'})
@@ -31,7 +31,14 @@ def write_df_to_rec_csv(df,path,fname,lati_colname='receptor_lat',long_colname='
     df1['zagl'] = df1['zagl'].round(2)
     df1['run_times'] = df1['run_times'].round('S')
     df1['run_times'] = df1['run_times'].dt.tz_localize(None)
-    df1.to_csv(os.path.join(path,fname),index=False)
+    return df1
+
+def rec_df_full_fname(rec_df,path,prefix):
+    t1 = rec_df['run_times'].iloc[0].strftime('%Y%m%d%H%M%S')
+    t2 = rec_df['run_times'].iloc[-1].strftime('%Y%m%d%H%M%S')
+    fname = f'{prefix}_{t1}_{t2}.csv'
+    full_csv_name = os.path.join(path,fname)
+    return full_csv_name
 
 def format_datetime(year,month,day,hour,minute,second,tz='US/Mountain'):
     '''Formats an input datetime from input values and returns both a string, as well as a timezone aware object
@@ -254,21 +261,6 @@ def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
     multi_df = add_sh_and_agl(multi_df,hrrr_elev_df) #Add the receptor surface heights and elevations above ground level
 
     return multi_df
-
-def check_paths(path_dict):
-    for key,path in path_dict.items():
-        if not os.path.isdir(path):
-            raise FileNotFoundError(f'Path not found for {key} at {path} Check to ensure your paths are correctly configured.')
-        if key == 'hrrr_data_folder':
-            if not os.path.isdir(os.path.join(path,'subsets')):
-                os.mkdir(os.path.join(path,'subsets'))
-        if key == 'output_folder':
-            if not os.path.isdir(os.path.join(path,'receptors')):
-                os.mkdir(os.path.join(path,'receptors'))
-            if not os.path.isdir(os.path.join(path,'receptors','for_stilt')):
-                os.mkdir(os.path.join(path,'receptors','for_stilt'))
-            if not os.path.isdir(os.path.join(path,'receptors','for_log')):
-                os.mkdir(os.path.join(path,'receptors','for_log'))
 
 class oof_manager:
     '''Class to manage getting data from oof files'''
@@ -530,8 +522,8 @@ class em27_slant_handler:
 def main():
     #Define the paths to important folders. Use full paths: doesn't like the "~" notation for $HOME
 
-    dt1_str = '2022-06-16 18:00:00' #start datetime
-    dt2_str = '2022-06-16 18:25:00' #end datetime
+    dt1_str = '2022-06-16 23:00:00' #start datetime
+    dt2_str = '2022-06-17 01:00:10' #end datetime
     timezone='UTC' #timezone of collected data. for now, this should be UTC as the EM27 stores data in UTC
 
     folder_paths = {'column_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2',
@@ -556,8 +548,12 @@ def main():
     for oof_filename in oof_files_inrange:
         print(f'Creating slant dataframe for {oof_filename}')
         slant_df = ESH.run_singleday_fromoof(oof_filename,dt1_str,dt2_str,timezone,z_ail_list)
-
-    write_df_to_rec_csv(slant_df,os.path.join(folder_paths['output_folder'],'receptors','for_stilt'),'rec1.txt')
+        slant_df_pos = slant_df.loc[slant_df['receptor_zagl']>0]
+        if len(slant_df_pos)==0:
+            continue
+        rec_df = slant_df_to_rec_df(slant_df_pos)
+        full_fname = rec_df_full_fname(rec_df,os.path.join(folder_paths['output_folder'],'receptors','for_stilt'),oof_filename)
+        rec_df.to_csv(full_fname,index=False)
 
 if __name__ == "__main__":
    main()
