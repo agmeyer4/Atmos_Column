@@ -1,21 +1,64 @@
+import numpy as np
+from .input_config import *
+import datetime
+import pytz
+import os
+
 class run_config_obj:
-    #Define the paths to important folders. Use full paths: doesn't like the "~" notation for $HOME
-    column_type = 'em27'
+    def __init__(self):
+        self.column_type = column_type
+        self.interval = interval
+        self.data_filter = data_filter
+        self.start_dt = self.dtstr_to_dttz(start_dt_str,timezone)
+        self.end_dt = self.dtstr_to_dttz(end_dt_str,timezone)
+        self.timezone = timezone
+        self.folder_paths = folder_paths
+        self.folder_paths['hrrr_subset_path'] = os.path.join(folder_paths['hrrr_data_folder'],'subsets')
+        self.hrrr_subset_datestr=hrrr_subset_datestr
+        self.z_ail_list = z_ail_list
+        self.inst_lat,self.inst_lon,self.inst_zasl = self.get_lat_lon_zasl()
+        self.split_dt_ranges = self.get_split_dt_ranges()
 
-    dt1_str = '2022-06-16 18:00:00' #start datetime
-    dt2_str = '2022-06-16 18:00:10' #end datetime
-    timezone='UTC' #timezone of collected data. for now, this should be UTC as the EM27 stores data in UTC
+    def get_lat_lon_zasl(self):
+        if self.column_type == 'em27':
+            self.inst_lat=self.inst_lon=self.inst_zasl=np.nan
+        else:
+            self.inst_lat = inst_lat
+            self.inst_lon = inst_lon
+            self.inst_zasl = inst_zasl 
+        return inst_lat,inst_lon,inst_zasl
 
-    folder_paths = {'column_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2',
-                    'hrrr_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/hrrr',
-                    'output_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output',
-                    'stilt_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT'}
+    def dtstr_to_dttz(self,dt_str,timezone):
+        dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
+        dt = pytz.timezone(timezone).localize(dt)
+        return dt
 
-    # folder_paths = {'column_data_folder':'/Users/agmeyer4/Google Drive/My Drive/Documents/LAIR/Data/SLC_EM27_ha_2022_oof_v2/',
-    #                 'hrrr_data_folder':'/Users/agmeyer4/LAIR_1/Data/hrrr',
-    #                 'output_folder':'/Users/agmeyer4/LAIR_1/Atmos_Column/output',
-    #                 'stilt_wd':'/Users/agmeyer4/LAIR_1/STILT'}
+    def get_split_dt_ranges(self):
+        if self.start_dt > self.end_dt:
+            raise ValueError('Error: input config datetimes are incorrect - end datetime is before start datetime')
+        split_dt_list = [] #initialize the day strings in the range
+        if self.start_dt.date() == self.end_dt.date():
+            split_dt_list.append({'dt1':self.start_dt,'dt2':self.end_dt})
+            return split_dt_list
+        
+        delta_days = self.end_dt.date()-self.start_dt.date() #get the number of days delta between the end and the start
+        for i in range(delta_days.days +1): #loop through that number of days 
+            date = self.start_dt.date() + datetime.timedelta(days=i) #get the day by incrementing by i (how many days past the start)
+            if date == self.start_dt.date():
+                dt1 = self.start_dt
+                dt2 = pytz.timezone(self.timezone).localize(datetime.datetime(date.year,date.month,date.day,23,59,59))
+            elif date == self.end_dt.date():
+                dt1 = pytz.timezone(self.timezone).localize(datetime.datetime(date.year,date.month,date.day,0,0,0,))
+                dt2 = self.end_dt
+            else:
+                dt1 = pytz.timezone(self.timezone).localize(datetime.datetime(date.year,date.month,date.day,0,0,0,))
+                dt2 = pytz.timezone(self.timezone).localize(datetime.datetime(date.year,date.month,date.day,23,59,59))
+            split_dt_list.append({'dt1':dt1,'dt2':dt2})
+        return split_dt_list
 
-    hrrr_subset_datestr='2022-07-01 00:00'
+def main():
+    configs = run_config_obj()
+    print(configs.__dict__)
 
-    z_ail_list = [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500]
+if __name__=='__main__':
+    main()

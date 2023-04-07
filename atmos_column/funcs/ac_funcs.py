@@ -199,6 +199,7 @@ def add_sh_and_agl(slant_df,hrrr_grid_df):
     slant_df['receptor_z_is_agl'] = slant_df['receptor_zagl'].gt(0) #add the boolean column for if the point is above the ground
     return slant_df
 
+
 def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
     '''Creates a slant dataframe from a dataframe loaded from an oof file
     
@@ -262,6 +263,10 @@ def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
 
     return multi_df
 
+def pdcol_is_equal(pdcol):
+    a = pdcol.to_numpy()
+    return (a[0]==a).all()
+
 class oof_manager:
     '''Class to manage getting data from oof files'''
 
@@ -274,7 +279,7 @@ class oof_manager:
         self.oof_data_folder = oof_data_folder
         self.timezone = timezone
 
-    def load_oof_df_inrange(self,dt1_str,dt2_str,oof_filename,filter_flag_0=False):
+    def load_oof_df_inrange(self,dt1,dt2,filter_flag_0=False):
         '''Loads a dataframe from an oof file for datetimes between the input values
         
         Args:
@@ -284,19 +289,18 @@ class oof_manager:
         filter_flag_0 (bool) : True will filter the dataframe to rows where the flag column is 0 (good data), false returns all the data
 
         Returns:
-        df (pd.DataFrame) : pandas dataframe loaded from the oof file, formatted date, and column names       
+        df (pd.DataFrame) : pandas dataframe loaded from the oof files, formatted date, and column names       
         '''
-
-        #Get timezone aware datetimes from the input strings
-        dt1 = self.tzdt_from_str(dt1_str) 
-        dt2 = self.tzdt_from_str(dt2_str)
-
-        df = self.df_from_oof(oof_filename) #load the oof file to a dataframe
-        df = self.df_dt_formatter(df) #format the dataframe to the correct datetime and column name formats
-        df = df.loc[(df.index>=dt1)&(df.index<=dt2)] #filter the dataframe between the input datetimes
-        if filter_flag_0: #if we want to filter by flag
-            df = df.loc[df['flag'] == 0] #then do it!
-        return df
+        oof_files_inrange = self.get_oof_in_range(dt1,dt2)
+        full_df = pd.DataFrame()
+        for oof_filename in oof_files_inrange:
+            df = self.df_from_oof(oof_filename) #load the oof file to a dataframe
+            df = self.df_dt_formatter(df) #format the dataframe to the correct datetime and column name formats
+            df = df.loc[(df.index>=dt1)&(df.index<=dt2)] #filter the dataframe between the input datetimes
+            if filter_flag_0: #if we want to filter by flag
+                df = df.loc[df['flag'] == 0] #then do it!
+            full_df = pd.concat([full_df,df])
+        return full_df
 
     def tzdt_from_str(self,dt_str):
         '''Apply the inherent timezone of the class to an input datetime string
@@ -398,10 +402,6 @@ class oof_manager:
         files in range (list) : list of oof filenames that fall within the datetime range input
         '''
 
-        if type(dt1)==str: #if the input datetimes are strings instead of datetimes
-            dt1 = self.tzdt_from_str(dt1) #convert to timezone aware datetimes
-            dt2 = self.tzdt_from_str(dt2)
-
         daystrings_in_range = [] #initialize the day strings in the range
         delta_days = dt2.date()-dt1.date() #get the number of days delta between the end and the start
         for i in range(delta_days.days +1): #loop through that number of days 
@@ -416,51 +416,94 @@ class oof_manager:
         
         return files_in_range
 
-class em27_slant_handler:
-    '''Class to handle getting EM27 slant column receptors'''
+    def date_from_oof(self,oof_filename):
+        try:
+            datestring = oof_filename.split('.')[0][2:]
+            date = datetime.datetime.strptime(datestring,"%Y%m%d").date()
+            return date
+        except:
+            raise Exception(f'Error in getting datestring from {oof_filename}')
 
-    def __init__(self,hrrr_subset_path,oof_data_folder,output_path,hrrr_subset_datestr = '2023-01-01'):
+    def get_inrange_dates(self,dt1,dt2):
+        files_in_range = self.get_oof_in_range(dt1,dt2)
+        dates_in_range = []
+        for oof_filename in files_in_range:
+            inrange_date = self.date_from_oof(oof_filename)
+            dates_in_range.append(inrange_date)
+        return dates_in_range
+
+def create_dt_list(dt1,dt2,interval):
+    dt_index = pd.date_range(dt1,dt2,freq=interval)
+    dt_list = list(dt_index)
+    return dt_list
+
+def dtstr_to_dttz(dt_str,timezone):
+    dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
+    dt = pytz.timezone(timezone).localize(dt)
+    return dt
+
+class ground_slant_handler:
+    '''Class to handle getting slant column receptors'''
+
+    def __init__(self,inst_lat,inst_lon,inst_zasl,z_ail_list,hrrr_subset_path,hrrr_subset_datestr = '2023-01-01'):
         '''
         Args: 
-        hrrr_subset_path (str) : folder path for where hrrr surface heights subset grib2 files should be stored
+        hrrr_subset_path (str) : folder path for where hrrr sursface heights subset grib2 files should be stored
         oof_data_folder (str) : folder path where oof data is stored
         output_path (str) : path to output receptor files, etc
         hrrr_subset_datestring (str) : date string ("YYYY-mm-dd") representing the day to pull hrrr data from, if no subset file exists
         '''
-
+        self.inst_lat = inst_lat
+        self.inst_lon = inst_lon
+        self.inst_zasl = inst_zasl
+        self.z_ail_list = z_ail_list
         self.hrrr_subset_path = hrrr_subset_path
-        self.oof_data_folder = oof_data_folder
-        self.output_path = output_path
         self.hrrr_subset_datestr = hrrr_subset_datestr
 
-    def run_manual(self,inst_lat,inst_lon,inst_zasl,z_ail_list,year,month,day,hour,minute,second,tz):
-        '''A master run method to get a slant dataframe based on manual inputs
+    def create_initial_slantdf(self,dt_list):
+        combined_tuples = list(itertools.product(dt_list,self.z_ail_list)) #create a combined tuple for creating the multiindex, with item 0=datetime, item 1=z_ail
+        #initialize a bunch of lists to build the dataframe
+        receptor_lats = []
+        receptor_lons = []
+        receptor_zasls = []
+
+        print(f'Adding receptor lat/lons along the slant column')
+        i=1
+        for dt,zail in combined_tuples: #loop through the datetime, zail tuples
+            i+=1
+            #Get the slant column for each of those points
+            receptor_lat,receptor_lon = slant_lat_lon(self.inst_lat,self.inst_lon,dt,zail)
+            receptor_zasl = zail+self.inst_zasl #add the elevation above sea level by adding above instrument level to the instrument elevation above sea level
+
+            #Append all of the calculated or pulled values to the preallocated lists
+            receptor_lats.append(receptor_lat)
+            receptor_lons.append(receptor_lon)
+            receptor_zasls.append(receptor_zasl)
+
+        multi_df = pd.DataFrame(index = pd.MultiIndex.from_tuples(combined_tuples,names=['dt','z_ail'])) #create the multiindexed dataframe, using the combined tuples
         
-        Args:
-        inst_lat (float) : latitude of the intsrument
-        inst_lon (float) : longitude of the instrument
-        inst_zasl (float) : z elevation (in meters above sea level) of the instrument
-        z_ail_list (list) : receptor levels above the instrument, in meters
-        year (int) : year of measurment
-        month (int) : month of measurment
-        day (int) : day of measurment
-        hour (int) : hour of measurement
-        minute (int) : minute of measurement
-        second (float) : second of measurement
-        tz (str) : timezone of measurement from the pytz.timezone available options (default = 'US/Mountain')
+        #populate the dataframe with the values calculated above
+        multi_df['inst_lat'] = self.inst_lat 
+        multi_df['inst_lon'] = self.inst_lon
+        multi_df['inst_zasl'] = self.inst_zasl
+        multi_df['receptor_lat'] = receptor_lats
+        multi_df['receptor_lon'] = receptor_lons
+        multi_df['receptor_zasl'] = receptor_zasls
+        return multi_df
 
-        Returns: 
-        slant_df (pandas.DataFrame()) : dataframe with the receptor locations and elevation details for the slant column 
-        '''
-
-        dt_str,tz_dt = format_datetime(year,month,day,hour,minute,second,tz=tz) #format the datetime
-        slant_df = load_singletime_hgtdf(inst_lat,inst_lon,inst_zasl,tz_dt,z_ail_list) #create the dataframe from the inputs
+    def run_slant_at_intervals(self,dt1,dt2,interval='1H'):
         try:
             self.hrrr_elev_df #if the hrrr surface height elevation exists, just keep going
         except:
             self.load_hrrr_surf_hgts() #if it doesn't exist yet, load it
-        slant_df = add_sh_and_agl(slant_df,self.hrrr_elev_df) #apply the surface heights and above ground levels to the created dataframe
-        return slant_df
+
+        dt_list = create_dt_list(dt1,dt2,interval)
+        multi_df = self.create_initial_slantdf(dt_list)
+
+        print('Adding surface height and receptor elevation above ground level')
+        multi_df = add_sh_and_agl(multi_df,self.hrrr_elev_df) #Add the receptor surface heights and elevations above ground level
+
+        return multi_df
     
     def run_singleday_fromoof(self,oof_filename,dt1_str,dt2_str,tz,z_ail_list):
         '''Gets a multiindexed slant dataframe using an input oof file
@@ -523,37 +566,35 @@ def main():
     #Define the paths to important folders. Use full paths: doesn't like the "~" notation for $HOME
 
     dt1_str = '2022-06-16 23:00:00' #start datetime
-    dt2_str = '2022-06-17 01:00:10' #end datetime
+    dt2_str = '2022-06-18 01:00:10' #end datetime
     timezone='UTC' #timezone of collected data. for now, this should be UTC as the EM27 stores data in UTC
 
-    folder_paths = {'column_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2',
-                    'hrrr_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/hrrr',
-                    'output_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output',
-                    'stilt_wd':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT'}
+    # folder_paths = {'column_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2',
+    #                 'hrrr_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/hrrr',
+    #                 'output_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output',
+    #                 'stilt_wd':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT'}
 
-    # folder_paths = {'column_data_folder':'/Users/agmeyer4/Google Drive/My Drive/Documents/LAIR/Data/SLC_EM27_ha_2022_oof_v2/',
-    #                 'hrrr_data_folder':'/Users/agmeyer4/LAIR_1/Data/hrrr',
-    #                 'output_folder':'/Users/agmeyer4/LAIR_1/Atmos_Column/output',
-    #                 'stilt_wd':'/Users/agmeyer4/LAIR_1/STILT'}
+    folder_paths = {'column_data_folder':'/Users/agmeyer4/Google Drive/My Drive/Documents/LAIR/Data/SLC_EM27_ha_2022_oof_v2/',
+                    'hrrr_data_folder':'/Users/agmeyer4/LAIR_1/Data/hrrr',
+                    'output_folder':'/Users/agmeyer4/LAIR_1/Atmos_Column/output',
+                    'stilt_wd':'/Users/agmeyer4/LAIR_1/STILT'}
 
     hrrr_subset_datestr='2022-07-01 00:00'
     z_ail_list = [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500]
-    ESH = em27_slant_handler(os.path.join(folder_paths['hrrr_data_folder'],'subsets'),
-                            folder_paths['column_data_folder'],
-                            folder_paths['output_folder'],
-                            hrrr_subset_datestr=hrrr_subset_datestr)
+    
     my_oof_manager = oof_manager(folder_paths['column_data_folder'],timezone)
-    oof_files_inrange = my_oof_manager.get_oof_in_range(dt1_str,dt2_str)
-    print(f'Found {len(oof_files_inrange)} oof files in dt range. Analyzing...')
-    for oof_filename in oof_files_inrange:
-        print(f'Creating slant dataframe for {oof_filename}')
-        slant_df = ESH.run_singleday_fromoof(oof_filename,dt1_str,dt2_str,timezone,z_ail_list)
-        slant_df_pos = slant_df.loc[slant_df['receptor_zagl']>0]
-        if len(slant_df_pos)==0:
-            continue
-        rec_df = slant_df_to_rec_df(slant_df_pos)
-        full_fname = rec_df_full_fname(rec_df,os.path.join(folder_paths['output_folder'],'receptors','for_stilt'),oof_filename)
-        rec_df.to_csv(full_fname,index=False)
+    my_oof_manager.get_inrange_dates(dt1_str,dt2_str)
+
+    # print(f'Found {len(oof_files_inrange)} oof files in dt range. Analyzing...')
+    # for oof_filename in oof_files_inrange:
+    #     print(f'Creating slant dataframe for {oof_filename}')
+    #     slant_df = ESH.run_singleday_fromoof(oof_filename,dt1_str,dt2_str,timezone,z_ail_list)
+    #     slant_df_pos = slant_df.loc[slant_df['receptor_zagl']>0]
+    #     if len(slant_df_pos)==0:
+    #         continue
+    #     rec_df = slant_df_to_rec_df(slant_df_pos)
+    #     full_fname = rec_df_full_fname(rec_df,os.path.join(folder_paths['output_folder'],'receptors','for_stilt'),oof_filename)
+    #     rec_df.to_csv(full_fname,index=False)
 
 if __name__ == "__main__":
    main()
