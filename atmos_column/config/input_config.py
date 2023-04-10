@@ -1,4 +1,4 @@
-column_type = 'ground'
+column_type = 'em27' #options: 'ground', 'em27'
 interval = '1H'
 data_filter = None
 start_dt_str = '2022-06-16 00:00:00' #start datetime

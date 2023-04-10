@@ -402,7 +402,7 @@ class oof_manager:
         Returns:
         files in range (list) : list of oof filenames that fall within the datetime range input
         '''
-
+        dt1 = dt1 - datetime.timedelta(days=1) #sometimes with UTC there are values in the previous day's oof file, so start one behind to check
         daystrings_in_range = [] #initialize the day strings in the range
         delta_days = dt2.date()-dt1.date() #get the number of days delta between the end and the start
         for i in range(delta_days.days +1): #loop through that number of days 
@@ -432,6 +432,17 @@ class oof_manager:
             inrange_date = self.date_from_oof(oof_filename)
             dates_in_range.append(inrange_date)
         return dates_in_range
+
+    def check_get_loc(self,oof_df):
+        cols_to_check = ['inst_lat','inst_lon','inst_zasl']
+        for col in cols_to_check:
+            if not pdcol_is_equal(oof_df[col]):
+                raise Exception('{col} is not the same for the entire oof_df. This is an edge case.')
+        #If we make it through the above, we can pull the values from the dataframe at the 0th index because they are all the same
+        inst_lat = oof_df.iloc[0]['inst_lat']
+        inst_lon = oof_df.iloc[0]['inst_lon']
+        inst_zasl = oof_df.iloc[0]['inst_zasl']
+        return inst_lat,inst_lon,inst_zasl   
 
 def create_dt_list(dt1,dt2,interval):
     dt_index = pd.date_range(dt1,dt2,freq=interval)
