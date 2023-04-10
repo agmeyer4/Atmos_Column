@@ -1,10 +1,12 @@
 import os
-import run_config
+#import run_config
 #TODO stilt directory check
 
 class directory_checker:
-    def __init__(self,configs):
+    def __init__(self,configs,run=False):
         self.configs = configs
+        if run:
+            self.full_check()
     
     def full_check(self):
         print('Checking Paths')
@@ -21,19 +23,16 @@ class directory_checker:
         output_path = self.configs.folder_paths['output_folder']
         if not os.path.isdir(os.path.join(output_path,'receptors')):
             os.mkdir(os.path.join(output_path,'receptors'))
-        if not os.path.isdir(os.path.join(output_path,'receptors','for_stilt')):
-            os.mkdir(os.path.join(output_path,'receptors','for_stilt'))
-        if not os.path.isdir(os.path.join(output_path,'receptors','for_log')):
-            os.mkdir(os.path.join(output_path,'receptors','for_log'))
 
     def check_hrrr_subset(self):
         if not os.path.isdir(os.path.join(self.configs.folder_paths['hrrr_data_folder'],'subsets')):
             os.mkdir(os.path.join(self.configs.folder_paths['hrrr_data_folder'],'subsets'))
 
 def main():
-    configs = run_config.run_config_obj #load the configs 
-    dir_check = directory_checker(configs)
-    dir_check.full_check()
+    # configs = run_config.run_config_obj #load the configs 
+    # dir_check = directory_checker(configs)
+    # dir_check.full_check()
+    pass
 
 if __name__=='__main__':
     main()

@@ -15,7 +15,7 @@ class em27_stilt_setup:
 
     def find_receptor_file(self):
         oof_prefix = self.oof_filename.split('.')[0]
-        receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors','for_stilt')
+        receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors')
         string_match = 0
         for file in os.listdir(receptor_path):
             if oof_prefix in file:

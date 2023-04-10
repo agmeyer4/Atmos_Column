@@ -1,7 +1,7 @@
 column_type = 'ground'
 interval = '1H'
 data_filter = None
-start_dt_str = '2022-06-16 18:00:00' #start datetime
+start_dt_str = '2022-06-16 00:00:00' #start datetime
 end_dt_str = '2022-06-18 15:00:00' #end datetime
 timezone='UTC' #timezone of collected data. for now, this should be UTC as the EM27 stores data in UTC
 inst_lat = 40.766

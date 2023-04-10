@@ -20,17 +20,18 @@ import xarray as xr
 
 #Functions     
 
-def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt'):
+def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt',rec_is_agl_colname='receptor_z_is_agl'):
     print('Changing slant df to receptor style df')
     df1 = df.copy()
     df1 = df1.reset_index()
-    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times'})
-    df1 = df1[['run_times','lati','long','zagl']]
+    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl'})
+    df1 = df1[['run_times','lati','long','zagl','z_is_agl']]
     df1['lati'] = df1['lati'].round(4)
     df1['long'] = df1['long'].round(4)
     df1['zagl'] = df1['zagl'].round(2)
     df1['run_times'] = df1['run_times'].round('S')
     df1['run_times'] = df1['run_times'].dt.tz_localize(None)
+    df1 = df1.dropna()
     return df1
 
 def rec_df_full_fname(rec_df,path,prefix):
@@ -563,38 +564,8 @@ class ground_slant_handler:
         H.download('HGT')   #download the height dataset
 
 def main():
-    #Define the paths to important folders. Use full paths: doesn't like the "~" notation for $HOME
+    pass
 
-    dt1_str = '2022-06-16 23:00:00' #start datetime
-    dt2_str = '2022-06-18 01:00:10' #end datetime
-    timezone='UTC' #timezone of collected data. for now, this should be UTC as the EM27 stores data in UTC
-
-    # folder_paths = {'column_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2',
-    #                 'hrrr_data_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/hrrr',
-    #                 'output_folder':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output',
-    #                 'stilt_wd':'/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT'}
-
-    folder_paths = {'column_data_folder':'/Users/agmeyer4/Google Drive/My Drive/Documents/LAIR/Data/SLC_EM27_ha_2022_oof_v2/',
-                    'hrrr_data_folder':'/Users/agmeyer4/LAIR_1/Data/hrrr',
-                    'output_folder':'/Users/agmeyer4/LAIR_1/Atmos_Column/output',
-                    'stilt_wd':'/Users/agmeyer4/LAIR_1/STILT'}
-
-    hrrr_subset_datestr='2022-07-01 00:00'
-    z_ail_list = [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500]
-    
-    my_oof_manager = oof_manager(folder_paths['column_data_folder'],timezone)
-    my_oof_manager.get_inrange_dates(dt1_str,dt2_str)
-
-    # print(f'Found {len(oof_files_inrange)} oof files in dt range. Analyzing...')
-    # for oof_filename in oof_files_inrange:
-    #     print(f'Creating slant dataframe for {oof_filename}')
-    #     slant_df = ESH.run_singleday_fromoof(oof_filename,dt1_str,dt2_str,timezone,z_ail_list)
-    #     slant_df_pos = slant_df.loc[slant_df['receptor_zagl']>0]
-    #     if len(slant_df_pos)==0:
-    #         continue
-    #     rec_df = slant_df_to_rec_df(slant_df_pos)
-    #     full_fname = rec_df_full_fname(rec_df,os.path.join(folder_paths['output_folder'],'receptors','for_stilt'),oof_filename)
-    #     rec_df.to_csv(full_fname,index=False)
 
 if __name__ == "__main__":
    main()
