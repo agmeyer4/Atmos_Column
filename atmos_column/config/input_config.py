@@ -1,4 +1,4 @@
-column_type = 'ground' #options: 'ground', 'em27'
+column_type = 'em27' #options: 'ground', 'em27'
 interval = '1H'
 data_filter = None
 start_dt_str = '2022-06-16 00:00:00' #start datetime
@@ -18,3 +18,4 @@ folder_paths = {'base_project_folder':'/uufs/chpc.utah.edu/common/home/u0890904/
 #                 'stilt_wd':'/Users/agmeyer4/LAIR_1/STILT'}
 hrrr_subset_datestr='2022-07-01 00:00'
 z_ail_list = [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500]
+backtraj_hours = -24

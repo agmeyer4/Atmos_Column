@@ -44,11 +44,11 @@ class receptor_creator:
             dt2_oof = self.dt2
         slant_df = gsh.run_slant_at_intervals(dt1_oof,dt2_oof)
         receptor_df = ac.slant_df_to_rec_df(slant_df)
-        prefix = f"{self.configs.column_type}_{self.dt1.strftime('%Y%m%d')}"
-        full_fname = ac.rec_df_full_fname(receptor_df,
-                                            os.path.join(self.configs.folder_paths['output_folder'],'receptors'),prefix)
-        self.receptor_header(full_fname,dt1_oof,dt2_oof)
-        receptor_df.to_csv(full_fname,mode = 'a',index=False)
+        receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type)
+        fname = self.get_rec_fname()
+        receptor_fullpath = os.path.join(receptor_path,fname)
+        self.receptor_header(receptor_fullpath,dt1_oof,dt2_oof)
+        receptor_df.to_csv(receptor_fullpath,mode = 'a',index=False)
 
     def ground_rec_creator(self):
         print(f'Column type is generic "ground"')
@@ -63,11 +63,11 @@ class receptor_creator:
                                     self.configs.hrrr_subset_datestr)
         slant_df = gsh.run_slant_at_intervals(self.dt1,self.dt2)
         receptor_df = ac.slant_df_to_rec_df(slant_df)
-        prefix = f"{self.configs.column_type}_{self.dt1.strftime('%Y%m%d')}"
-        full_fname = ac.rec_df_full_fname(receptor_df,
-                                            os.path.join(self.configs.folder_paths['output_folder'],'receptors'),prefix)
-        self.receptor_header(full_fname,self.dt1,self.dt2)
-        receptor_df.to_csv(full_fname,mode = 'a',index=False)
+        receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type)
+        fname = self.get_rec_fname()
+        receptor_fullpath = os.path.join(receptor_path,fname)
+        self.receptor_header(receptor_fullpath,self.dt1,self.dt2)
+        receptor_df.to_csv(receptor_fullpath,mode = 'a',index=False)
 
     def receptor_header(self,full_fname,dt1,dt2):
         with open(full_fname,'w') as f:
@@ -77,6 +77,14 @@ class receptor_creator:
             f.write(f"Data date: {dt1.strftime('%Y-%m-%d')}\n")
             f.write(f"Datetime range: {dt1} to {dt2}\n")
             f.write('\n')
+
+    def get_rec_fname(self):
+        date = self.dt1.strftime('%Y%m%d')
+        t1 = self.dt1.strftime('%H%M%S')
+        t2 = self.dt2.strftime('%H%M%S')
+        fname = f'{date}_{t1}_{t2}.csv'
+        return fname
+
 
 def main():
     configs = run_config.run_config_obj()

@@ -34,13 +34,6 @@ def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon
     df1 = df1.dropna()
     return df1
 
-def rec_df_full_fname(rec_df,path,prefix):
-    t1 = rec_df['run_times'].iloc[0].strftime('%Y%m%d%H%M%S')
-    t2 = rec_df['run_times'].iloc[-1].strftime('%Y%m%d%H%M%S')
-    fname = f'{prefix}_{t1}_{t2}.csv'
-    full_csv_name = os.path.join(path,fname)
-    return full_csv_name
-
 def format_datetime(year,month,day,hour,minute,second,tz='US/Mountain'):
     '''Formats an input datetime from input values and returns both a string, as well as a timezone aware object
     

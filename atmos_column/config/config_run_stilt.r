@@ -1,13 +1,18 @@
-#!/usr/bin/env Rscript
-# STILT R Executable
-# For documentation, see https://uataq.github.io/stilt/
-# Ben Fasoli
+met_file_format    <- '%Y%m%d.%Hz.hrrra'
+met_subgrid_buffer <- 0.2
+met_subgrid_enable <- F
+met_subgrid_levels <- NA
+n_met_min          <- 1
 
-# User inputs ------------------------------------------------------------------
-project <- 'stilt'
-stilt_wd <- file.path('/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT', project)
-output_wd <- file.path(stilt_wd, 'out')
-lib.loc <- .libPaths()[1]
+#Custom receptor load from receptor path and filenames, to be written in new_run_stilt by stilt_setup.py
+receptors = data.frame()
+for (rec_filename in rec_filenames){
+  rec <- read.csv(file.path(rec_path,rec_filename), skip=6)
+  rec$run_times <- as.POSIXct(rec$run_times,tz='UTC')
+  rec$z_is_agl <- as.logical(rec$z_is_agl)
+  rec2 <- rec[rec$z_is_agl==TRUE,]
+  receptors = rbind(receptors,rec2)
+}
 
 # Parallel simulation settings
 n_cores <- 1
@@ -18,23 +23,6 @@ slurm_options <- list(
   account   = 'lin-kp',
   partition = 'lin-kp'
 )
-
-# Simulation timing, yyyy-mm-dd HH:MM:SS (UTC)
-t_start <- '2015-12-10 00:00:00'
-t_end   <- '2015-12-10 00:00:00'
-run_times <- seq(from = as.POSIXct(t_start, tz = 'UTC'),
-                 to   = as.POSIXct(t_end, tz = 'UTC'),
-                 by   = 'hour')
-
-# Receptor location(s)
-lati <- 40.5
-long <- -112.0
-zagl <- 5
-
-# Expand the run times, latitudes, and longitudes to form the unique receptors
-# that are used for each simulation
-receptors <- expand.grid(run_time = run_times, lati = lati, long = long,
-                         zagl = zagl, KEEP.OUT.ATTRS = F, stringsAsFactors = F)
 
 # Footprint grid settings, must set at least xmn, xmx, ymn, ymx below
 hnf_plume <- T
@@ -47,14 +35,6 @@ ymn <- NA
 ymx <- NA
 xres <- 0.01
 yres <- xres
-
-# Meteorological data input
-met_path           <- '<path_to_arl_meteorological_data>'
-met_file_format    <- '%Y%m%d.%Hz.hrrra'
-met_subgrid_buffer <- 0.2
-met_subgrid_enable <- F
-met_subgrid_levels <- NA
-n_met_min          <- 1
 
 # Model control
 n_hours       <- -24

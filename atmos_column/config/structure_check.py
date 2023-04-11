@@ -3,8 +3,9 @@ import os
 #TODO stilt directory check
 
 class directory_checker:
-    def __init__(self,configs,run=False):
+    def __init__(self,configs,run=False,column_options=['ground','em27']):
         self.configs = configs
+        self.column_options = column_options
         if run:
             self.full_check()
     
@@ -23,6 +24,9 @@ class directory_checker:
         output_path = self.configs.folder_paths['output_folder']
         if not os.path.isdir(os.path.join(output_path,'receptors')):
             os.mkdir(os.path.join(output_path,'receptors'))
+        for column_type in self.column_options:
+            if not os.path.isdir(os.path.join(output_path,'receptors',column_type)):
+                os.mkdir(os.path.join(output_path,'receptors',column_type))
 
     def check_hrrr_subset(self):
         if not os.path.isdir(os.path.join(self.configs.folder_paths['hrrr_data_folder'],'subsets')):
