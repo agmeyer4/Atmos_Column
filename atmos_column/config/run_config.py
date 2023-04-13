@@ -3,6 +3,7 @@ import datetime
 import pytz
 import os
 import json
+import multiprocessing
 
 class run_config_obj:
     def __init__(self,config_json_fname='input_config.json'):
@@ -16,6 +17,15 @@ class run_config_obj:
         self.get_lat_lon_zasl()
         self.split_dt_ranges = self.get_split_dt_ranges()
         self.run_stilt_configs['n_hours'] = self.backtraj_hours
+        self.get_cores()
+
+    def get_cores(self):
+        avail_cores = multiprocessing.cpu_count()
+        if self.cores == 'max':
+            self.cores = avail_cores
+        if self.cores > avail_cores:
+            raise ValueError('Error in input config: more cores than are available')
+
 
     def load_json(self):
         with open(self.config_json_fullpath) as f:

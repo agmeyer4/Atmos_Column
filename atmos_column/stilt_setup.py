@@ -44,6 +44,7 @@ class stilt_setup:
         receptor_loader_filepath = os.path.join(self.configs.folder_paths['base_project_folder'],'Atmos_Column','atmos_column','funcs','receptor_loader.r')
 
         run_stilt_configs = self.configs.run_stilt_configs
+        run_stilt_configs['n_cores'] = self.configs.cores
 
         with open(original_run_stilt_filepath,'r') as original_run_stilt_file:
             original_run_stilt_lines = original_run_stilt_file.readlines()
@@ -136,10 +137,8 @@ def main():
     configs = run_config.run_config_obj()
     structure_check.directory_checker(configs,run=True)
 
-    for dt_range in configs.split_dt_ranges:
-        print(f"{dt_range['dt1']} to {dt_range['dt2']}")
-        stilt_setup_inst = stilt_setup(configs,dt_range['dt1'],dt_range['dt2'])
-        stilt_setup_inst.full_setup()
+    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt)
+    stilt_setup_inst.full_setup()
 
 if __name__=='__main__':
     main()
