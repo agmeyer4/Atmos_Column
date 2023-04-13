@@ -1,32 +1,30 @@
 import numpy as np
-from .input_config import *
 import datetime
 import pytz
 import os
+import json
 
 class run_config_obj:
-    def __init__(self):
-        self.column_type = column_type
-        self.interval = interval
-        self.data_filter = data_filter
-        self.start_dt = self.dtstr_to_dttz(start_dt_str,timezone)
-        self.end_dt = self.dtstr_to_dttz(end_dt_str,timezone)
-        self.timezone = timezone
-        self.folder_paths = folder_paths
-        self.folder_paths['hrrr_subset_path'] = os.path.join(folder_paths['hrrr_data_folder'],'subsets')
-        self.hrrr_subset_datestr=hrrr_subset_datestr
-        self.z_ail_list = z_ail_list
-        self.inst_lat,self.inst_lon,self.inst_zasl = self.get_lat_lon_zasl()
+    def __init__(self,config_json_fname='input_config.json'):
+        self.config_json_fullpath = os.path.join(os.path.dirname(__file__),config_json_fname)
+        json_data = self.load_json()
+        for key in json_data:
+            setattr(self,key,json_data[key])
+        self.start_dt = self.dtstr_to_dttz(self.start_dt_str,self.timezone)
+        self.end_dt = self.dtstr_to_dttz(self.end_dt_str,self.timezone)
+        self.folder_paths['hrrr_subset_path'] = os.path.join(self.folder_paths['hrrr_data_folder'],'subsets')
+        self.get_lat_lon_zasl()
         self.split_dt_ranges = self.get_split_dt_ranges()
+        self.run_stilt_configs['n_hours'] = self.backtraj_hours
+
+    def load_json(self):
+        with open(self.config_json_fullpath) as f:
+            json_data = json.load(f)
+        return json_data
 
     def get_lat_lon_zasl(self):
         if self.column_type == 'em27':
             self.inst_lat=self.inst_lon=self.inst_zasl=np.nan
-        else:
-            self.inst_lat = inst_lat
-            self.inst_lon = inst_lon
-            self.inst_zasl = inst_zasl 
-        return inst_lat,inst_lon,inst_zasl
 
     def dtstr_to_dttz(self,dt_str,timezone):
         dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
@@ -57,7 +55,7 @@ class run_config_obj:
         return split_dt_list
 
 def main():
-    configs = run_config_obj()
+    configs = run_config_obj('/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/atmos_column/config/input_config.json')
     print(configs.__dict__)
 
 if __name__=='__main__':
