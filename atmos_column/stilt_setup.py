@@ -1,35 +1,61 @@
+'''
+Module: stilt_setup.py
+Author: Aaron G. Meyer (agmeyer4@gmail.com)
+Description: 
+This module is used for setting up STILT runs based on configurations in the associated config file. The stilt_setup class
+contains methods required to make the STILT project, find the correct receptor files based on a datetime range, and setup 
+the run_stilt.r file for running STILT with the configs in the config file. 
+
+'''
+
+#Imports
 import os
 from config import run_config, structure_check
 import subprocess
 import datetime
-from herbie import Herbie
 
 class stilt_setup:
+    '''This class sets up a STILT run based on the configs and datetime inputs'''
+
     def __init__(self,configs,dt1,dt2,stilt_name='stilt'):
+        '''
+        Args:
+        configs (obj of type run_config_obj) : configurations from a config json file to use 
+        dt1 (datetime.datetime) : start datetime
+        dt2 (datetime.datetime) : end datetime
+        stilt_name (str) : name of the STILT project to go inside the configs.folder_paths['stilt_folder']. Default='stilt'
+        '''
+
         self.configs = configs
         self.dt1 = dt1
         self.dt2 = dt2
         self.stilt_name = stilt_name
 
     def full_setup(self):
-        stilt_init(self.configs,stilt_name=self.stilt_name)
-        receptor_fnames = self.find_receptor_files()
-        if len(receptor_fnames) == 0:
-            raise Exception('No receptor files found matching column type in date range')
-        self.rewrite_run_stilt(receptor_fnames)
-        self.move_new_runstilt()
+        '''This does the full setup for a STILT project by creating it if necessary, finding receptors, and rewriting/moving run_stilt.r'''
+
+        stilt_init(self.configs,stilt_name=self.stilt_name) #initialize the stilt project if necessary
+        receptor_fnames = self.find_receptor_files() #find the receptor files that fit the config and datetime range criteria
+        if len(receptor_fnames) == 0: #if there aren't any files in the range
+            raise Exception('No receptor files found matching column type in date range') #raise an exception
+        self.rewrite_run_stilt(receptor_fnames) #rewrite the run_stilt.r file with the correct configs and receptors
+        self.move_new_runstilt() #move the newly rewritten run_stilt file to the STILT project directory 
 
     def find_receptor_files(self):
-        receptor_fnames = []
-        receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type)
-        daystrings_inrange = self.get_datestrings_inrange()
-        for file in os.listdir(receptor_path):
-            for daystring in daystrings_inrange:
-                if daystring in file:
-                    receptor_fnames.append(os.path.join(file))
-        return receptor_fnames
+        '''Finds the receptor files in atmos_column/output/receptors/{column_type} that match the datetime range criteria'''
+
+        receptor_fnames = [] #initialize the list
+        receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #path to receptor files based on configs
+        daystrings_inrange = self.get_datestrings_inrange() #gets the dates within the datetime range which will appear in the receptor filenames
+        for file in os.listdir(receptor_path): #loop through the receptor files
+            for daystring in daystrings_inrange: #for each of the date strings
+                if daystring in file: #check if the date is in the filename
+                    receptor_fnames.append(os.path.join(file)) #if it is, add it to the good list, otherwise just keep going
+        return receptor_fnames #return the names of receptor files in the correct folder within the datetime range
 
     def get_datestrings_inrange(self):
+        '''Gets strings of dates within the datetime range that will match the label of the receptor filenames'''
+
         daystrings_in_range = [] #initialize the day strings in the range
         delta_days = self.dt2.date()-self.dt1.date() #get the number of days delta between the end and the start
         for i in range(delta_days.days +1): #loop through that number of days 
@@ -38,77 +64,124 @@ class stilt_setup:
         return daystrings_in_range
     
     def rewrite_run_stilt(self,receptor_fnames):
+        '''This method rewrites the original run_stilt.r file in the STILT/r directory to match the configurations needed. The newly written 
+        file is saved to atmos_column/temp/ac_run_stilt.r. 
+        
+        There may be a better way to do this, but it works for now. 
+
+        Args:
+        receptor_fnames (list) : list of filenames for the receptor files to be included in the STILT run. 
+        '''
+
         print('Rewriting the ac_run_stilt.r file to current configuration')
-        original_run_stilt_filepath = os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'r','run_stilt.r')
-        new_run_stilt_filepath = os.path.join(self.configs.folder_paths['base_project_folder'],'Atmos_Column','atmos_column','temp','ac_run_stilt.r')
-        receptor_loader_filepath = os.path.join(self.configs.folder_paths['base_project_folder'],'Atmos_Column','atmos_column','funcs','receptor_loader.r')
 
-        run_stilt_configs = self.configs.run_stilt_configs
-        run_stilt_configs['n_cores'] = self.configs.cores
+        #Define some filepaths that we will need to read from to write the new file
+        original_run_stilt_filepath = os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'r','run_stilt.r') #the original run_stilt.r file in the stilt directory
+        new_run_stilt_filepath = os.path.join(self.configs.folder_paths['base_project_folder'],'Atmos_Column','atmos_column','temp','ac_run_stilt.r') #where to save the newly written file
+        receptor_loader_filepath = os.path.join(self.configs.folder_paths['base_project_folder'],'Atmos_Column','atmos_column','funcs','receptor_loader.r') #an r method to read multiple receptor files
+        
+        #load the run_stilt_configs from the config file. Within configs.run_stilt_configs, the user can put in any of the same parameters
+        #that show up in run_stilt.r, and these parameters will be written into the new run_stilt.r file. 
+        run_stilt_configs = self.configs.run_stilt_configs #load the configs
+        run_stilt_configs['n_cores'] = self.configs.cores #make sure n_cores is in the run stilt configs based on teh cores parameter in configs
 
+        #Open and read the lines of the original run_stilt.r and the receptor loader. Pieces of these will be written to the new file
         with open(original_run_stilt_filepath,'r') as original_run_stilt_file:
             original_run_stilt_lines = original_run_stilt_file.readlines()
         with open(receptor_loader_filepath,'r') as receptor_loader_file:
             receptor_loader_lines = receptor_loader_file.readlines()
         
+        #Open the new file for writing
         new_run_stilt_file = open(new_run_stilt_filepath,'w')
 
         for i in range(0,11): #The first 11 lines are correct and contain paths setup during the stilt initialization
-            new_run_stilt_file.write(original_run_stilt_lines[i])
-
+            new_run_stilt_file.write(original_run_stilt_lines[i]) #so write those to the new file
+            
         #Next we want the receptors. We need the paths and filenames first
-        path_line_str,filenames_line_str = self.receptor_path_line_creator(receptor_fnames)
-        new_run_stilt_file.write(path_line_str+'\n')
+        path_line_str,filenames_line_str = self.receptor_path_line_creator(receptor_fnames) #get the path and filenames
+        new_run_stilt_file.write(path_line_str+'\n') #write these to the new file
         new_run_stilt_file.write(filenames_line_str+'\n\n')
-        #Next we need the code to load multiple receptor files with headers
-        for receptor_loader_line in receptor_loader_lines:
-            new_run_stilt_file.write(receptor_loader_line)
-        new_run_stilt_file.write('\n\n')
 
-        for i in range(11,len(original_run_stilt_lines)):
-            if (i>21)&(i<38):
+        #Next we need the code to load multiple receptor files with headers from the receptor_loader file. 
+        for receptor_loader_line in receptor_loader_lines:
+            new_run_stilt_file.write(receptor_loader_line) #write these code lines to the new file
+        new_run_stilt_file.write('\n\n') #add some newlines for readability
+
+        #now we go through the rest of the original run_stilt file and write the necessary parts to the new file
+        for i in range(11,len(original_run_stilt_lines)): #loop through the lines of the file
+            if (i>21)&(i<38): #the lines between 21 and 38 are the original receptor definitions. 
+                              #Since we already wrote the receptor files and loader above to the new file, 
+                              #just skip these lines (don't write them to the new file.)
                 continue
-            line = original_run_stilt_lines[i]
-            line_split = line.split()
-            if len(line_split)==0:
-                new_run_stilt_file.write(line)
-                continue
-            if line_split[0] in run_stilt_configs.keys():
-                if line_split[1] == '<-':
-                    new_run_stilt_file.write(' '.join([line_split[0],line_split[1],str(run_stilt_configs[line_split[0]])]))
+            line = original_run_stilt_lines[i] #grab the original line
+            line_split = line.split() #split the original line on whitespace
+            if len(line_split)==0: #if it's a blank line, it will break the line_split[0] in teh next block,
+                new_run_stilt_file.write(line) #so just write the blank line
+                continue #and move on to the next line
+            if line_split[0] in run_stilt_configs.keys(): #check if the first element of the line is a parameter in run_stilt_configs
+                #also check if the second element is "<-". These are the parameters we can reset. 
+                #If the second element is "=", it's in the stilt_apply function and we don't want to rewrite that. 
+                if line_split[1] == '<-': 
+                    #write the new parameter from run_stilt_configs, instead of the original parameter
+                    new_run_stilt_file.write(' '.join([line_split[0],line_split[1],str(run_stilt_configs[line_split[0]])])) 
                     new_run_stilt_file.write('\n')
-                else:
-                    new_run_stilt_file.write(line)
-            else:
-                new_run_stilt_file.write(line)
-        
-        new_run_stilt_file.close()
+                else: #if the second element isnt '<-', we don't want to replace it 
+                    new_run_stilt_file.write(line) #so just write the line
+            else: #if the line doesn't have a new value in run_stilt_configs
+                new_run_stilt_file.write(line) #just write the original line
+        new_run_stilt_file.close() #close the file
 
     def receptor_path_line_creator(self,receptor_fnames):
+        '''Creates the necessary lines to add to the run_stilt.r file based on the receptor fnames and configs
+        
+        Args:
+        receptor_fnames (list) : list of receptor filenames to go into the run_stilt.r file. 
+        '''
+
+        #write the path line string based on the configurations and filepaths
         path_line_str = "rec_path <- '{}/{}/{}'".format(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type)
-        filenames_line_str = "rec_filenames <- c("
-        for receptor_fname in receptor_fnames:
-            filenames_line_str = filenames_line_str+f"'{receptor_fname}',"
-        filenames_line_str = filenames_line_str[:-1]+')'
+        
+        #write the filenames string. we want it to be an array of strings when written in the run_stilt.r file, so append each one
+        filenames_line_str = "rec_filenames <- c(" #start with the variable name and start the character array 
+        for receptor_fname in receptor_fnames: #loop through the receptor filenames
+            filenames_line_str = filenames_line_str+f"'{receptor_fname}'," #append each one to the string, with a comma afterward
+        filenames_line_str = filenames_line_str[:-1]+')' #delete the final comma, and add the closing parethases
         return path_line_str,filenames_line_str
         
     def move_new_runstilt(self):
+        '''Moves the newly written ac_run_stilt.r file to the stilt project directory'''
+
         print('Moving new ac_run_stilt.r to the STILT directory')
-        new_run_stilt_path = os.path.join(self.configs.folder_paths['base_project_folder'],'Atmos_Column','atmos_column','temp')
-        new_run_stilt_fname = 'ac_run_stilt.r'
-        official_run_stilt_path = os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'r')
-        os.rename(os.path.join(new_run_stilt_path,new_run_stilt_fname),os.path.join(official_run_stilt_path,new_run_stilt_fname))
+        new_run_stilt_path = os.path.join(self.configs.folder_paths['base_project_folder'],'Atmos_Column','atmos_column','temp') #where it should be stored
+        new_run_stilt_fname = 'ac_run_stilt.r' #should be this name
+        official_run_stilt_path = os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'r') #path to the stilt project r directory
+        os.rename(os.path.join(new_run_stilt_path,new_run_stilt_fname),os.path.join(official_run_stilt_path,new_run_stilt_fname)) #move the file
 
 def stilt_init(configs,stilt_name='stilt'):
-    if os.path.isdir(os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r')):
-        print(f"STILT looks to be set up at {configs.folder_paths['stilt_folder']}/{stilt_name}")
+    '''Method to initialize the STILT project if it isn't already
+    
+    Args: 
+    configs (obj of type run_stilt_obj) : contains the path information we will need
+    stilt_name (str) : name of the stilt project within the stilt folder defined in configs
+    '''
+
+    if os.path.isdir(os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r')): #a good bet if there is a folder named "r" in the stilt directory
+        print(f"STILT looks to be set up at {configs.folder_paths['stilt_folder']}/{stilt_name}") 
         return
+    
+    #If there isn't, we want to create it 
     print(f"STILT not found in {configs.folder_paths['stilt_folder']}/{stilt_name} -- Creating project")
-    os.chdir(configs.folder_paths['stilt_folder'])
-    uataq_command = f"uataq::stilt_init('{stilt_name}')"
+    os.chdir(configs.folder_paths['stilt_folder']) #change into the stilt folder
+    uataq_command = f"uataq::stilt_init('{stilt_name}')" #write the uataq command to be joined with the subprocess call
     response = subprocess.call(['Rscript','-e', uataq_command]) #this is the official stilt init command
 
 class met_handler:
+    '''A class to handle getting the met data for running STILT 
+    
+    This is on hold and TODO
+    
+    '''
+
     def __init__(self,configs,dt1,dt2,n_hours):
         self.configs = configs
         self.dt1 = dt1
@@ -134,7 +207,9 @@ class met_handler:
         return dts
 
 def main():
-    configs = run_config.run_config_obj()
+    '''This main function will setup the stilt project using the configuration file'''
+
+    configs = run_config.run_config_obj(config_json_fname='input_config.json')
     structure_check.directory_checker(configs,run=True)
 
     stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt)

@@ -1,7 +1,7 @@
 {
-    "column_type" : "ground", 
+    "column_type" : "em27", 
     "interval" : "1H",
-    "start_dt_str" : "2022-06-16 01:00:00",
+    "start_dt_str" : "2022-06-15 01:00:00",
     "end_dt_str" : "2022-06-17 02:00:00",
     "timezone" : "UTC", 
     "inst_lat" : 40.766,
@@ -15,11 +15,11 @@
         "stilt_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT"
     },
     "z_ail_list" : [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500],
-    "backtraj_hours" : -2,
+    "backtraj_hours" : -5,
     "hrrr_subset_datestr" : "2022-07-01 00:00",
     "met_model_type":"hrrr",
     "met_product":"nat",
-    "cores":32,
+    "cores":"max",
     "run_stilt_configs":{
         "met_path" : "'/uufs/chpc.utah.edu/common/home/lin-group9/hrrr/hrrr'",
         "met_file_format" : "'%Y%m%d_%H'",

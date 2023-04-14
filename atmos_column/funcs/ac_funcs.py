@@ -21,17 +21,32 @@ import xarray as xr
 #Functions     
 
 def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt',rec_is_agl_colname='receptor_z_is_agl'):
+    '''Converts a slant dataframe to the form required for a receptor dataframe, including the column names that can be read by r stilt
+    
+    Args:
+    df (pd.DataFrame) : slant style dataframe 
+    lati_colname (str) : column name in the slant df corresponding to the receptor latitude, to be named 'lati' in the receptor df
+    long_colname (str) : column name in the slant df corresponding to the receptor longitude, to be named 'long' in the receptor df
+    zagl_colname (str) : column name in the slant df corresponding to the receptor zagl, to be named 'zagl' in the receptor df
+    run_times_colname (str) : column name in the slant df corresponding to the receptor datetune, to be named 'run_times' in the receptor df
+    rec_is_agl_colname (str) : column name in the slant df corresponding to whether the receptor is above ground level, to be named 'z_is_agl' in the receptor df
+    
+    Returns:
+    df1 (pd.DataFrame) : dataframe that can be written to a csv and function as a receptor file for stilt, with the correct column names
+    '''
+    
     print('Changing slant df to receptor style df')
-    df1 = df.copy()
-    df1 = df1.reset_index()
-    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl'})
-    df1 = df1[['run_times','lati','long','zagl','z_is_agl']]
+    df1 = df.copy() #copy the df
+    df1 = df1.reset_index() #reset the index, especially necessary in the case of multiindexing
+    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl'}) #rename the columns
+    df1 = df1[['run_times','lati','long','zagl','z_is_agl']] #only get the columns we need
+    #do some rounding so we don't have to write a bunch of digits
     df1['lati'] = df1['lati'].round(4)
     df1['long'] = df1['long'].round(4)
     df1['zagl'] = df1['zagl'].round(2)
     df1['run_times'] = df1['run_times'].round('S')
     #df1['run_times'] = df1['run_times'].dt.tz_localize(None)
-    df1 = df1.dropna()
+    df1 = df1.dropna() #drop na values, usually where the sun is not up 
     return df1
 
 def format_datetime(year,month,day,hour,minute,second,tz='US/Mountain'):
@@ -143,36 +158,36 @@ def load_singletime_hgtdf(inst_lat,inst_lon,inst_zasl,tz_dt,z_ail_list):
     return slant_df
 
 def slant_lat_lon(inst_lat,inst_lon,dt,z_above_inst):
-        '''Gets the lat/lon coordinates of a slant column given instrument position, datetime, and desired z height above the instrument
-        
-        Args:
-        inst_lat (float) : decimal latitude of the instrument
-        inst_lon (float) : decimal longitude of the instrument
-        dt (Timestamp) : datetime of the measurment
-        z_above_inst (float) : z level above the instrument in meters
-        
-        Returns: 
-        new_lat (float) : decimal latitude of the point on the solar slant column at the given z
-        new_lon (float) : decimal longitude of the point on the solar slant column at the given z
-        '''
-        
-        try:
-            sol_zen_deg = 90-solar.get_altitude(inst_lat,inst_lon,dt) #tries to handle the datetime
-        except Exception as e:
-            #print(e) 
-            dt = dt.to_pydatetime() #if it's a pandas timestamp, convert it to a datetime.datetime
-            sol_zen_deg = 90-solar.get_altitude(inst_lat,inst_lon,dt) #the solar zenith angle (solar.get_altitude() gives the angle from horizontal, not zenith, so subtract from 90
-        if sol_zen_deg>90: #when the solar zenith angle is greater than 90, the sun is below the horizon and the algorithm breaks down
-            return np.nan,np.nan #so just return nans
-        sol_zen_rad = np.deg2rad(sol_zen_deg) #convert to radians for use in the tangent function
-        sol_azi_deg = solar.get_azimuth(inst_lat,inst_lon,dt) #get the solar azimuth
-        arc_dist = z_above_inst * np.tan(sol_zen_rad) #get the horizontal distance given the height above the instrument using the correct geometry
-        geod = Geodesic.WGS84 #set up the geodesic for dealing with earth being an ellipse
-        new_point = geod.Direct(inst_lat,inst_lon,sol_azi_deg,arc_dist) #calculate the new point on earth's ellipsoid using initial lat/lon, azimuth (bearing) and distance
-        new_lat = new_point['lat2'] #pull out and return the new point
-        new_lon = new_point['lon2']
-        #print(f'z={z_above_inst} || zenith_deg={sol_zen_deg} || azim_deg={sol_azi_deg} || dist={arc_dist} || newlat={new_lat} || newlong={new_lon}')
-        return new_lat,new_lon
+    '''Gets the lat/lon coordinates of a slant column given instrument position, datetime, and desired z height above the instrument
+    
+    Args:
+    inst_lat (float) : decimal latitude of the instrument
+    inst_lon (float) : decimal longitude of the instrument
+    dt (Timestamp) : datetime of the measurment
+    z_above_inst (float) : z level above the instrument in meters
+    
+    Returns: 
+    new_lat (float) : decimal latitude of the point on the solar slant column at the given z
+    new_lon (float) : decimal longitude of the point on the solar slant column at the given z
+    '''
+    
+    try:
+        sol_zen_deg = 90-solar.get_altitude(inst_lat,inst_lon,dt) #tries to handle the datetime
+    except Exception as e:
+        #print(e) 
+        dt = dt.to_pydatetime() #if it's a pandas timestamp, convert it to a datetime.datetime
+        sol_zen_deg = 90-solar.get_altitude(inst_lat,inst_lon,dt) #the solar zenith angle (solar.get_altitude() gives the angle from horizontal, not zenith, so subtract from 90
+    if sol_zen_deg>90: #when the solar zenith angle is greater than 90, the sun is below the horizon and the algorithm breaks down
+        return np.nan,np.nan #so just return nans
+    sol_zen_rad = np.deg2rad(sol_zen_deg) #convert to radians for use in the tangent function
+    sol_azi_deg = solar.get_azimuth(inst_lat,inst_lon,dt) #get the solar azimuth
+    arc_dist = z_above_inst * np.tan(sol_zen_rad) #get the horizontal distance given the height above the instrument using the correct geometry
+    geod = Geodesic.WGS84 #set up the geodesic for dealing with earth being an ellipse
+    new_point = geod.Direct(inst_lat,inst_lon,sol_azi_deg,arc_dist) #calculate the new point on earth's ellipsoid using initial lat/lon, azimuth (bearing) and distance
+    new_lat = new_point['lat2'] #pull out and return the new point
+    new_lon = new_point['lon2']
+    #print(f'z={z_above_inst} || zenith_deg={sol_zen_deg} || azim_deg={sol_azi_deg} || dist={arc_dist} || newlat={new_lat} || newlong={new_lon}')
+    return new_lat,new_lon
 
 def add_sh_and_agl(slant_df,hrrr_grid_df):
     '''Add columns for the surface heights, receptor height above ground level, and boolean column if the receptor height is actually ABOVE the ground (nonnegative)
@@ -195,7 +210,8 @@ def add_sh_and_agl(slant_df,hrrr_grid_df):
 
 
 def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
-    '''Creates a slant dataframe from a dataframe loaded from an oof file
+    ''' ***this functionality is depricated, as creating slant columns at each oof timestep is too much***
+    Creates a slant dataframe from a dataframe loaded from an oof file
     
     Args: 
     oof_df (pd.DataFrame) : pandas dataframe loaded from an oof file (probably using oof_manager.df_from_oof()). Must have columns "inst_lat", "inst_lon", "inst_zasl", "spectrum" 
@@ -258,6 +274,15 @@ def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
     return multi_df
 
 def pdcol_is_equal(pdcol):
+    '''Checks if all of the values in a column of a dataframe are equal to one another
+    
+    Args: 
+    pdcol (column of a pd dataframe)
+    
+    Returns:
+    (bool) : true if all of the values in a column are equal, false if any are different
+    '''
+
     a = pdcol.to_numpy()
     return (a[0]==a).all()
 
@@ -317,7 +342,9 @@ class oof_manager:
         filename (str) : name of the oof file (not the full path)
         
         Returns:
-        df (pd.DataFrame) : a pandas dataframe loaded from the em27 oof file with applicable columns added/renamed'''
+        df (pd.DataFrame) : a pandas dataframe loaded from the em27 oof file with applicable columns added/renamed
+        '''
+
         oof_full_filepath = os.path.join(self.oof_data_folder,filename) #get the full filepath using the class' folder path
         df = pd.read_csv(oof_full_filepath,header = self.read_oof_header_line(oof_full_filepath),delim_whitespace=True,skip_blank_lines=False) #read it as a csv, parse the header
         df['inst_zasl'] = df['zobs(km)']*1000 #add the instrument z elevation in meters above sea level (instead of km)
@@ -411,22 +438,55 @@ class oof_manager:
         return files_in_range
 
     def date_from_oof(self,oof_filename):
+        '''Strips the date from an oof filename
+        
+        Args: 
+        oof_filename (str)
+
+        Returns:
+        date (datetime.datetime.date) : date gained from the oof filename
+        '''
+
         try:
-            datestring = oof_filename.split('.')[0][2:]
-            date = datetime.datetime.strptime(datestring,"%Y%m%d").date()
+            datestring = oof_filename.split('.')[0][2:] #split the oof_filename on . and remove the two letter identifier 
+            date = datetime.datetime.strptime(datestring,"%Y%m%d").date() #convert to a date
             return date
         except:
             raise Exception(f'Error in getting datestring from {oof_filename}')
 
     def get_inrange_dates(self,dt1,dt2):
-        files_in_range = self.get_oof_in_range(dt1,dt2)
-        dates_in_range = []
-        for oof_filename in files_in_range:
-            inrange_date = self.date_from_oof(oof_filename)
-            dates_in_range.append(inrange_date)
+        '''Gets a range of dates between an input datetime range
+        
+        Args:
+        dt1 (datetime.datetime) : start datetime
+        dt2 (datetime.datetime) : end datetime
+        
+        Returns:
+        dates_in_range (list) : list of dates within the datetime range
+        '''
+
+        files_in_range = self.get_oof_in_range(dt1,dt2) #find the files in the range
+        dates_in_range = [] #initialize the dates list
+        for oof_filename in files_in_range: #loop through the files in the range
+            inrange_date = self.date_from_oof(oof_filename) #grab the date
+            dates_in_range.append(inrange_date) #and append it
         return dates_in_range
 
     def check_get_loc(self,oof_df):
+        '''Checks and gets the location of the instrument from the oof file
+        TODO: This will break if the location moves during data collection or between days. This could become an issue if data was collected
+        during one day and went past midnight UTC, then moved to a differnt location the next day. The oof_df in this case for the secnod day
+        would include some data from the first data colleciton session in the early UTC hours, before moveing. 
+
+        Args: 
+        oof_df (pd.DataFrame) : dataframe of oof values
+        
+        Returns: 
+        inst_lat (float) : instrument latitude
+        inst_lon (float) : instrument longitude
+        inst_zasl (float) : instrument elevation above sea level in meters        
+        '''
+
         cols_to_check = ['inst_lat','inst_lon','inst_zasl']
         for col in cols_to_check:
             if not pdcol_is_equal(oof_df[col]):
@@ -438,11 +498,31 @@ class oof_manager:
         return inst_lat,inst_lon,inst_zasl   
 
 def create_dt_list(dt1,dt2,interval):
+    '''Creates a list of datetime elements within the range subject to an input interval
+    
+    Args:
+    dt1 (datetime.datetime) : start datetime
+    dt2 (datetime.datetime) : end datetime
+    interval (str) : interval string like "1H", "2T" etc
+    
+    Returns:
+    dt_list (list) : list of datetimes at the input interval between dt1 and dt2 inclusive
+    '''
+
     dt_index = pd.date_range(dt1,dt2,freq=interval)
     dt_list = list(dt_index)
     return dt_list
 
 def dtstr_to_dttz(dt_str,timezone):
+    '''Gets a datetime from a string and timezone
+    
+    Args:
+    dt_str (str) : string of style YYYY-mm-dd HH:MM:SS 
+    timeszone (str) : string of the timezone, like "UTC" 
+
+    Returns:
+    dt (datetime.datetime) : a tz-aware datetime object
+    '''
     dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
     dt = pytz.timezone(timezone).localize(dt)
     return dt
@@ -453,11 +533,14 @@ class ground_slant_handler:
     def __init__(self,inst_lat,inst_lon,inst_zasl,z_ail_list,hrrr_subset_path,hrrr_subset_datestr = '2023-01-01'):
         '''
         Args: 
-        hrrr_subset_path (str) : folder path for where hrrr sursface heights subset grib2 files should be stored
-        oof_data_folder (str) : folder path where oof data is stored
-        output_path (str) : path to output receptor files, etc
-        hrrr_subset_datestring (str) : date string ("YYYY-mm-dd") representing the day to pull hrrr data from, if no subset file exists
+        inst_lat (float) : latitude of instrument
+        inst_lon (float) : longitude of instrument
+        inst_zasl (float) : elevation of instrument above sea level in meters
+        z_ail_list (list) : a list of elevations (in meters) above the instrument level at which to place receptors along the slant column
+        hrrr_subset_path (str) : path to where the subset hrrr file should be stored
+        hrrr_subset_datestr (str) : string of the date from which we want to pull the hrrr surface data
         '''
+
         self.inst_lat = inst_lat
         self.inst_lon = inst_lon
         self.inst_zasl = inst_zasl
@@ -466,6 +549,16 @@ class ground_slant_handler:
         self.hrrr_subset_datestr = hrrr_subset_datestr
 
     def create_initial_slantdf(self,dt_list):
+        '''Creates the initial slant dataframe. Will not include any surface elevation data, but gets the receptors in the correct lat/lon/zasl  for the give time periods
+
+        Args:
+        dt_list (list) : list of datetimes representing the times at which we want receptors to appear in the dataframe
+
+        Returns:
+        multi_df (pd.DataFrame) : a pandas dataframe with multiindex. Level 0 is the datetime, level 1 is the z elevation above instrument level
+                                  other columns include the receptor lat, lon, zasl along the slant column. 
+
+        '''
         combined_tuples = list(itertools.product(dt_list,self.z_ail_list)) #create a combined tuple for creating the multiindex, with item 0=datetime, item 1=z_ail
         #initialize a bunch of lists to build the dataframe
         receptor_lats = []
@@ -497,13 +590,25 @@ class ground_slant_handler:
         return multi_df
 
     def run_slant_at_intervals(self,dt1,dt2,interval='1H'):
+        '''Gets a slant dataframe given a datetime range and interval
+        
+        Args:
+        dt1 (datetime.datetime) : start datetime
+        dt2 (datetime.datetime) : end datetime
+        interval (str) : string of frequency type like default ("1H") or like "2T", "10S" etc
+        
+        Returns:
+        multi_df (pd.DataFrame) : pandas dataframe with multiindex. Level 0 is the datetime, level 1 is the zail. Columns include
+                                  the receptor lat, long, zasl, as well as the surface heights and zagl for stilt
+        '''
+
         try:
             self.hrrr_elev_df #if the hrrr surface height elevation exists, just keep going
         except:
             self.load_hrrr_surf_hgts() #if it doesn't exist yet, load it
-
-        dt_list = create_dt_list(dt1,dt2,interval)
-        multi_df = self.create_initial_slantdf(dt_list)
+ 
+        dt_list = create_dt_list(dt1,dt2,interval) #create the dt list based on the range and interval
+        multi_df = self.create_initial_slantdf(dt_list) #create the multidf 
 
         print('Adding surface height and receptor elevation above ground level')
         multi_df = add_sh_and_agl(multi_df,self.hrrr_elev_df) #Add the receptor surface heights and elevations above ground level
@@ -511,7 +616,9 @@ class ground_slant_handler:
         return multi_df
     
     def run_singleday_fromoof(self,oof_filename,dt1_str,dt2_str,tz,z_ail_list):
-        '''Gets a multiindexed slant dataframe using an input oof file
+        ''' ***this is depricated, as creating multidfs from the oof file results in way too many receptors. may be useful at some point? 
+
+        Gets a multiindexed slant dataframe using an input oof file
         
         Args:
         oof_filename (str) : name of the oof file to load
@@ -569,7 +676,6 @@ class ground_slant_handler:
 
 def main():
     pass
-
 
 if __name__ == "__main__":
    main()
