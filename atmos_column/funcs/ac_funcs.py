@@ -20,6 +20,47 @@ import xarray as xr
 
 #Functions     
 
+def wdws_to_uv(ws,wd):
+    '''Converts a wind speed and direction to u/v vector
+    Ref: http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv#:~:text=A%20positive%20u%20wind%20is,wind%20is%20from%20the%20north.
+
+    Args:
+    ws (float) : wind speed (magnitude of wind vector)
+    wd (float) : wind direction (in degrees, clockwise from north)
+
+    Returns:
+    u (float) : u component of wind vector (positive u wind is from west)
+    v (float) : v component of wind vector (positiv v wind is from south)
+    '''
+    wd_new_ref = 270-wd #get to mathematical direction from meteorological direction
+    if ws < 0.01: #with very low winds, just set to 0 so we dont get weird values
+        u=v=0
+        return u,v
+    u = ws*np.cos(np.deg2rad(wd)) #u is the cosine 
+    v = ws*np.sin(np.deg2rad(wd)) #v is the sine
+    return u,v
+
+def uv_to_wdws(u,v):
+    '''Converts a u,v wind vector to meteorological wind speed and direction
+    Ref: http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv#:~:text=A%20positive%20u%20wind%20is,wind%20is%20from%20the%20north.
+
+    Args:
+    u (float) : u component of wind vector (positive u wind is from west)
+    v (float) : v component of wind vector (positiv v wind is from south)
+
+    Returns:
+    ws (float) : wind speed (magnitude of wind vector)
+    wd (float) : wind direction (in degrees, clockwise from north)
+    '''    
+    ws = np.sqrt(u**2+v**2) #wind speed is just the magnitude
+    if ws <0.01: #deal with very low winds -- wind direction undefined at low winds
+        wd = np.nan
+        return ws,wd
+    wd = np.rad2deg(np.arctan2(v,u)) #get the wind direciton
+    if wd<0: #the above returns values between -180 and 180, so add 360 to negative values to get output between 0 and 360
+        wd = wd+360
+    return ws,wd
+
 def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt',rec_is_agl_colname='receptor_z_is_agl'):
     '''Converts a slant dataframe to the form required for a receptor dataframe, including the column names that can be read by r stilt
     
@@ -310,6 +351,9 @@ class oof_manager:
         Returns:
         df (pd.DataFrame) : pandas dataframe loaded from the oof files, formatted date, and column names       
         '''
+        if type(dt1) == str:
+            dt1 = self.tzdt_from_str(dt1)
+            dt2 = self.tzdt_from_str(dt2)
         oof_files_inrange = self.get_oof_in_range(dt1,dt2)
         full_df = pd.DataFrame()
         for oof_filename in oof_files_inrange:

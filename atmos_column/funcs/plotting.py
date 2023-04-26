@@ -8,6 +8,8 @@ Description: Helpful plotting functions for visualizing atmospheric column data 
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import simplekml
 
 def add_slant_trace(fig,df,dt_str):
     '''Adds a slant trace to a plotly map
@@ -130,3 +132,11 @@ def create_slant_plots(df,center_lat,center_lon,zoom=8,dt_str='',plot_interval=0
         margin={"r":0,"t":0,"l":0,"b":0} #mess with the margins
         )
     return fig
+
+def kml_color_list_generator(n,cmap_name='viridis'):
+    cmap = plt.get_cmap(cmap_name)
+    rgb_cmap = (cmap(np.linspace(0,1,n))*255).astype(int)
+    kml_cmap = []
+    for c in rgb_cmap:
+        kml_cmap.append(simplekml.Color.rgb(c[0],c[1],c[2],c[3]))
+    return kml_cmap
