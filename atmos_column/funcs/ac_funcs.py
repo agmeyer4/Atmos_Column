@@ -2,7 +2,7 @@
 Module: ac_funcs.py
 Author: Aaron G. Meyer (agmeyer4@gmail.com)
 Description: This module contains functions and classes for doing atmospheric column analysis as part of the 
-atmos_column package. Included are functions for loading and transformign data from the EM27, dealing with slant columns,
+atmos_column package. Included are functions for loading and transforming oof data files from the EM27, dealing with slant columns,
 loading HRRR data for terrain information, and producing receptor files for running STILT
 '''
 
@@ -19,7 +19,6 @@ from herbie import Herbie
 import xarray as xr
 
 #Functions     
-
 def wdws_to_uv(ws,wd):
     '''Converts a wind speed and direction to u/v vector
     Ref: http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv#:~:text=A%20positive%20u%20wind%20is,wind%20is%20from%20the%20north.
@@ -327,6 +326,36 @@ def pdcol_is_equal(pdcol):
     a = pdcol.to_numpy()
     return (a[0]==a).all()
 
+def create_dt_list(dt1,dt2,interval):
+    '''Creates a list of datetime elements within the range subject to an input interval
+    
+    Args:
+    dt1 (datetime.datetime) : start datetime
+    dt2 (datetime.datetime) : end datetime
+    interval (str) : interval string like "1H", "2T" etc
+    
+    Returns:
+    dt_list (list) : list of datetimes at the input interval between dt1 and dt2 inclusive
+    '''
+
+    dt_index = pd.date_range(dt1,dt2,freq=interval)
+    dt_list = list(dt_index)
+    return dt_list
+
+def dtstr_to_dttz(dt_str,timezone):
+    '''Gets a datetime from a string and timezone
+    
+    Args:
+    dt_str (str) : string of style YYYY-mm-dd HH:MM:SS 
+    timeszone (str) : string of the timezone, like "UTC" 
+
+    Returns:
+    dt (datetime.datetime) : a tz-aware datetime object
+    '''
+    dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
+    dt = pytz.timezone(timezone).localize(dt)
+    return dt
+
 class oof_manager:
     '''Class to manage getting data from oof files'''
 
@@ -540,36 +569,6 @@ class oof_manager:
         inst_lon = oof_df.iloc[0]['inst_lon']
         inst_zasl = oof_df.iloc[0]['inst_zasl']
         return inst_lat,inst_lon,inst_zasl   
-
-def create_dt_list(dt1,dt2,interval):
-    '''Creates a list of datetime elements within the range subject to an input interval
-    
-    Args:
-    dt1 (datetime.datetime) : start datetime
-    dt2 (datetime.datetime) : end datetime
-    interval (str) : interval string like "1H", "2T" etc
-    
-    Returns:
-    dt_list (list) : list of datetimes at the input interval between dt1 and dt2 inclusive
-    '''
-
-    dt_index = pd.date_range(dt1,dt2,freq=interval)
-    dt_list = list(dt_index)
-    return dt_list
-
-def dtstr_to_dttz(dt_str,timezone):
-    '''Gets a datetime from a string and timezone
-    
-    Args:
-    dt_str (str) : string of style YYYY-mm-dd HH:MM:SS 
-    timeszone (str) : string of the timezone, like "UTC" 
-
-    Returns:
-    dt (datetime.datetime) : a tz-aware datetime object
-    '''
-    dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
-    dt = pytz.timezone(timezone).localize(dt)
-    return dt
 
 class ground_slant_handler:
     '''Class to handle getting slant column receptors'''

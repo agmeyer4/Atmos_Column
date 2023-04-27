@@ -3,10 +3,12 @@ Module: structure_check.py
 Author: Aaron G. Meyer (agmeyer4@gmail.com)
 Description: 
 This module is used to check to make sure that the folders are setup correctly for doing column and stilt analysis
+
+TODO: STILT directory check
 '''
 
+#Imports
 import os
-#TODO stilt directory check
 
 class directory_checker:
     '''This class checks to make sure paths are set up correctly based on input configs'''

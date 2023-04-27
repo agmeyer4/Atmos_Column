@@ -5,7 +5,6 @@ Description:
 This module is used for setting up STILT runs based on configurations in the associated config file. The stilt_setup class
 contains methods required to make the STILT project, find the correct receptor files based on a datetime range, and setup 
 the run_stilt.r file for running STILT with the configs in the config file. 
-
 '''
 
 #Imports

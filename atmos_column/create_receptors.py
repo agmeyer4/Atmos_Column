@@ -8,8 +8,8 @@ release particles as a way to discretize an integrated column measurment for Lag
 Typically, the functions and classes in this module will be used in "full_run.py". However, this module can function as a standalone
 method for creating receptor files based on the type of data you want. 
 
-To use in standalone mode, note that running <python create_receptors.py> will grab configuration settings from atmos_column/config/input_config.json.
-All parameter can be janged in the input config and the result of running <python create_receptors.py> will be the creation of receptor
+To use in standalone mode, note that running <python create_receptors.py> will grab configuration settings from the input_config file defined in main()
+All parameter can be changed in the input config and the result of running <python create_receptors.py> will be the creation of receptor
 files in output/receptors. See main() for detailed code description. 
 '''
 

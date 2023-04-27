@@ -2,7 +2,8 @@
 Module: run_config.py
 Author: Aaron G. Meyer (agmeyer4@gmail.com)
 Description: 
-This module is used to load and configure the configs jsons in the same folder. 
+This module is used to load and configure the configs jsons in the same folder. See input_config_description.txt for more information
+about what the input_config.json type files contain and how to edit. 
 '''
 
 #Imports

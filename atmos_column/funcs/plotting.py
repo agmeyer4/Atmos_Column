@@ -19,6 +19,7 @@ def add_slant_trace(fig,df,dt_str):
     df (pd.DataFrame) : pandas dataframe with "lat", "lon" and "z_ail" columns
     dt_str (string) : string representing the datetime of the measurement for labeling
     '''
+    
     if 'receptor_shasl' in df.columns:
         mb = create_mapbox_withsh(df,dt_str)
     else:
