@@ -33,7 +33,7 @@ Work in progress includes:
 │   └── STILT
 ```
 
-2. Create a conda environment from the yml file, then activate it using:   
+2. Create a conda environment from the yml file, then activate it. Ensure you are in the base git directory Atmos_Column.   
 ```
 > conda env create -f environment.yml
 ```  
