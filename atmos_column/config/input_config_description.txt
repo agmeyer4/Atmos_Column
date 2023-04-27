@@ -1,0 +1,57 @@
+The input_config.json (or whatever you name it) file is a JSON type file that contains
+the configurations for running on your individual setup, as well as parameters necessary
+to create the desired outputs. The format of this file should remain consistent, and variable
+names should not be changed. Variable values can and should be changed to reflect your desired
+outcome. These are described below. 
+
+"column_type" : a string with current options 'em27' or 'ground'. Option 'ground' is the generic
+    version, and will create slant receptors for a ground based sensor given the in put params. 
+    Option 'em27' will pull data from linked oof files to gather instrument location and timing 
+    data for the run. 
+
+"interval" : a string with synatx matching python's "freq" ('2H' = 2 hours, '5T' = 5 minutes). 
+    This option will define the interval between start and end datetiems at which to create slant 
+    column receptors. 
+
+"start_dt_str" : string of form datetime ('YYYY-mm-dd HH:MM:SS') from which to start the run. 
+
+"end_dt_str" : string of form datetime ('YYYY-mm-dd HH:MM:SS') at which to end the run 
+
+"timezone" : string of python timezone type ('UTC', 'US/Mountain') on which to operate. 
+    This should usually be 'UTC', as EM27 data is often collected in 'UTC' time and working in UTC
+    time eliminates misunderstandings. 
+
+"inst_lat" : float decimal latitude of the instrument. Will be overwritten if column_type='em27', 
+    as location data is garnered from oof files in this case. 
+
+"inst_lon" : float decimal longitude of the instrument. Will be overwritten if column_type='em27', 
+    as location data is garnered from oof files in this case. 
+
+"inst_zasl" : float decimal elevation in meters above sea level of the instrument. Will be overwritten 
+    if column_type='em27', as location data is garnered from oof files in this case. 
+
+"folder_paths": dict containing important folder paths.
+    "base_project_folder" : path to folder containing the Atmos_Column git repo, data, and STILT dirs. 
+    "column_data_folder" : location of total column data, such as a collection of oof files
+    "hrrr_data_folder" : location of HRRR data for STILT runs 
+    "output_data_folder" : location where output should be stored
+    "stilt_folder" : location where STILT runs should be carried out. Helpful to have this outside the git
+        repo. 
+
+"z_ail_list" : list of integers representing the heights above the instrument level (ail) at which to place receptors
+
+"backtraj_hours" : how long to run the backtrajectories in STILT
+
+"hrrr_subset_datestr" : string of datetime form (YYYY-mm-dd HH:MM) representing the datetime from which to pull
+    surface subset data. 
+
+"met_model_type" : string representing what kind of met data to use in STILT. Currently only option is 'hrrr' and is unused
+
+"met_product" : string representation of the met product such as 'nat' in hrrr. Currently unused. 
+
+"cores" : int or 'max'. If int, config will use that many cores (provided there are enough) to parallelize STILT
+    runs. If 'max', config will use all of the available cores to run STILT in parallel. 
+
+"run_stilt_configs" : dict for changing STILT run configuration settings. Keys must match the user-settable
+    values in run_stilt.r of the STILT setup. These values will be input into the modified run_stilt.r configuration
+    during stilt_setup.py. 
