@@ -1,6 +1,6 @@
 # Atmos_Column
 
-The Atmos_Colum package is a python wrapper for handling atmospheric "column" measurements like solar spectrometers, aircraft, and satellite remote sensing for use in atmospheric transport models like STILT ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)).
+The Atmos_Column package is a python wrapper for handling atmospheric "column" measurements like solar spectrometers, aircraft, and satellite remote sensing for use in atmospheric transport models like STILT ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)).
 
 **This is an in progress version. I am actively developing and features, bugs, configurations, etc. may change quickly.** This current version allows users to do the following:
 
