@@ -19,3 +19,6 @@ dependencies:
   - pytz
   - pysolar
   - plotly
+  - pip
+  - pip:
+    - simplekml
