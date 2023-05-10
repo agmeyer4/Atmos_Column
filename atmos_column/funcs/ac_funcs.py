@@ -717,8 +717,18 @@ class ground_slant_handler:
         H = Herbie(self.hrrr_subset_datestr,model='hrrr',product='sfc',fxx=0,save_dir=f'{self.hrrr_subset_path}') #setup the herbie subset
         H.download('HGT')   #download the height dataset
 
+def get_stilt_ncfiles(output_dir):
+    by_id_fulldir = os.path.join(output_dir,'by-id')
+    id_list = os.listdir(by_id_fulldir)
+    #for id in id_list:
+        # print(id)
+        # try:
+        #     print(f"{id}: {os.path.join(by_id_fulldir,id)/}")
+
 def main():
-    pass
+    output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'
+    get_stilt_ncfiles(output_dir)
+    
 
 if __name__ == "__main__":
    main()
