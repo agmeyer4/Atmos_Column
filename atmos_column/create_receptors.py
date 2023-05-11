@@ -68,7 +68,6 @@ class receptor_creator:
             print(f'No oof data for {self.dt1} to {self.dt2}') #tell us
             return #and just return nothing 
         inst_lat,inst_lon,inst_zasl = my_oof_manager.check_get_loc(oof_df) #grab the instrument lat/lon/zasl from the oof dataframe and check to make sure it's the same
-        print(inst_lat,inst_lon,inst_zasl)
         gsh = ac.ground_slant_handler(inst_lat,
                                       inst_lon,
                                       inst_zasl,
@@ -84,7 +83,7 @@ class receptor_creator:
         receptor_df = ac.slant_df_to_rec_df(slant_df) #transform it to a receptor dataframe style
         receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #get the path, including the column type, where receptor csv will be stored
         fname = self.get_rec_fname() #get the filename of the receptor
-        receptor_fullpath = os.path.join(receptor_path,'test.csv')#fname) #join the full path
+        receptor_fullpath = os.path.join(receptor_path,fname) #join the full path
         self.receptor_header(receptor_fullpath,dt1_oof,dt2_oof) #write the receptor header
         receptor_df.to_csv(receptor_fullpath,mode = 'a',index=False) #append the receptor dataframe to the created receptor csv with header. 
 

@@ -31,7 +31,9 @@ class stilt_setup:
         self.stilt_name = stilt_name
 
     def full_setup(self):
-        '''This does the full setup for a STILT project by creating it if necessary, finding receptors, and rewriting/moving run_stilt.r'''
+        '''This does the full setup for a STILT project by creating it if necessary, finding receptors, and rewriting/moving run_stilt.r
+        TODO make it so that you can subselect what type of receptor files you want to use for the run. Right now it just grabs all (and will run multiple)
+        for all receptor files that fit the date criteria in find_resceptor_files. '''
 
         stilt_init(self.configs,stilt_name=self.stilt_name) #initialize the stilt project if necessary
         receptor_fnames = self.find_receptor_files() #find the receptor files that fit the config and datetime range criteria
@@ -41,7 +43,8 @@ class stilt_setup:
         self.move_new_runstilt() #move the newly rewritten run_stilt file to the STILT project directory 
 
     def find_receptor_files(self):
-        '''Finds the receptor files in atmos_column/output/receptors/{column_type} that match the datetime range criteria'''
+        '''Finds the receptor files in atmos_column/output/receptors/{column_type} that match the datetime range criteria
+        '''
 
         receptor_fnames = [] #initialize the list
         receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #path to receptor files based on configs
@@ -211,7 +214,7 @@ def main():
     configs = run_config.run_config_obj(config_json_fname='input_config.json')
     structure_check.directory_checker(configs,run=True)
 
-    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt)
+    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'stilt1')
     stilt_setup_inst.full_setup()
 
 if __name__=='__main__':

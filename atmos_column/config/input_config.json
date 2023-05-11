@@ -2,7 +2,7 @@
     "column_type" : "em27", 
     "interval" : "1H",
     "start_dt_str" : "2022-10-19 14:00:00",
-    "end_dt_str" : "2022-10-19 23:00:00",
+    "end_dt_str" : "2022-10-20 02:00:00",
     "timezone" : "UTC", 
     "inst_lat" : 40.766,
     "inst_lon" : -111.847,
@@ -15,7 +15,7 @@
         "stilt_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT"
     },
     "z_ail_list" : [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500],
-    "backtraj_hours" : -5,
+    "backtraj_hours" : -24,
     "hrrr_subset_datestr" : "2022-07-01 00:00",
     "met_model_type":"hrrr",
     "met_product":"nat",
@@ -26,8 +26,9 @@
         "xmn" : -112.3,
         "xmx" : -111.52,
         "ymn" : 40.390,
-        "ymx" : 40.95,
+        "ymx" : 41.346,
         "xres" : 0.01,
-        "yres" : "xres"
+        "yres" : "xres",
+        "numpar" : 200
     }
 }
