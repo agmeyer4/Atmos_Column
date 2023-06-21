@@ -71,15 +71,16 @@ class receptor_creator:
         gsh = ac.ground_slant_handler(inst_lat,
                                       inst_lon,
                                       inst_zasl,
-                                      self.configs.z_ail_list,
-                                      self.configs.folder_paths['hrrr_subset_path'],
-                                      self.configs.hrrr_subset_datestr) #create the slant handler    
+                                      self.configs.z_ail_list) #create the slant handler    
         #Run from the interval before the start and after the end of the oof dataframe, rather than the whole day (clip to oof data)   
         dt1_oof = oof_df.index[0].floor(self.configs.interval)  #floor is rounding down to the nearest interval
         dt2_oof = oof_df.index[-1].ceil(self.configs.interval) #ceil is rounding up to the nearest interval
         if dt2_oof > self.dt2: #we don't want to go past dt2
             dt2_oof = self.dt2 #so set it equal if the last dt in the oof file is bigger -- this happens when it runs past midnight often
-        slant_df = gsh.run_slant_at_intervals(dt1_oof,dt2_oof) #Get the slant column between the oof datetimes
+        my_dem_handler = ac.DEM_handler(self.configs.folder_paths['dem_folder'],
+                                self.configs.dem_fname,
+                                self.configs.dem_typeid)
+        slant_df = gsh.run_slant_at_intervals(dt1_oof,dt2_oof,my_dem_handler) #Get the slant column between the oof datetimes
         receptor_df = ac.slant_df_to_rec_df(slant_df) #transform it to a receptor dataframe style
         receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #get the path, including the column type, where receptor csv will be stored
         fname = self.get_rec_fname() #get the filename of the receptor
@@ -100,10 +101,11 @@ class receptor_creator:
         gsh = ac.ground_slant_handler(self.configs.inst_lat,
                                     self.configs.inst_lon,
                                     self.configs.inst_zasl,
-                                    self.configs.z_ail_list,
-                                    self.configs.folder_paths['hrrr_subset_path'],
-                                    self.configs.hrrr_subset_datestr) #create the slant handler
-        slant_df = gsh.run_slant_at_intervals(self.dt1,self.dt2) #get the slant df
+                                    self.configs.z_ail_list) #create the slant handler
+        my_dem_handler = ac.DEM_handler(self.configs.folder_paths['dem_folder'],
+                                        self.configs.dem_fname,
+                                        self.configs.dem_typeid)
+        slant_df = gsh.run_slant_at_intervals(self.dt1,self.dt2,my_dem_handler) #get the slant df
         receptor_df = ac.slant_df_to_rec_df(slant_df) #convert to a receptor style dataframe
         receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #get the path to put the receptor csv in with column type
         fname = self.get_rec_fname() #get the filename

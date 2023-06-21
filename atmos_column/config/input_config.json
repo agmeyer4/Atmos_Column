@@ -1,5 +1,5 @@
 {
-    "column_type" : "em27", 
+    "column_type" : "ground", 
     "interval" : "1H",
     "start_dt_str" : "2022-10-19 14:00:00",
     "end_dt_str" : "2022-10-20 02:00:00",
@@ -9,16 +9,19 @@
     "inst_zasl" : 1492, 
     "folder_paths" : {
         "base_project_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/",
-        "column_data_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_oof_v2",
+        "column_data_folder" : "//uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_2023_oof_v2_nasrin_correct",
         "hrrr_data_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/HRRR",
         "output_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output",
-        "stilt_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT"
+        "stilt_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT",
+        "dem_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/DEM"
     },
     "z_ail_list" : [0,25,50,75,100,150,200,300,400,600,1000,1500,2000,2500],
     "backtraj_hours" : -24,
     "hrrr_subset_datestr" : "2022-07-01 00:00",
     "met_model_type":"hrrr",
     "met_product":"nat",
+    "dem_fname" : "ASTGTM_NC.003_30m_aid0001_slcbig.nc",
+    "dem_typeid" : "aster",
     "cores":"max",
     "run_stilt_configs":{
         "met_path" : "'/uufs/chpc.utah.edu/common/home/lin-group9/hrrr/hrrr'",
