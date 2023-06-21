@@ -229,7 +229,7 @@ def slant_lat_lon(inst_lat,inst_lon,dt,z_above_inst):
     #print(f'z={z_above_inst} || zenith_deg={sol_zen_deg} || azim_deg={sol_azi_deg} || dist={arc_dist} || newlat={new_lat} || newlong={new_lon}')
     return new_lat,new_lon
 
-def add_sh_and_agl(slant_df,hrrr_grid_df):
+def add_sh_and_agl(slant_df,my_dem_handler):
     '''Add columns for the surface heights, receptor height above ground level, and boolean column if the receptor height is actually ABOVE the ground (nonnegative)
     
     Args:
@@ -242,76 +242,11 @@ def add_sh_and_agl(slant_df,hrrr_grid_df):
                               receptor_zagl = height of the receptor above the ground level at its lat/lon
                               receptor_z_is_agl = boolean column where true means the receptor is actually above the ground
     '''
-
-    slant_df['receptor_shasl'] = slant_df.apply(lambda row: get_nearest_from_grid(hrrr_grid_df,row['receptor_lat'],row['receptor_lon']),axis=1) #get the nearest surface height from the hrrr grid
+    print('adding surface and agl heights')
+    slant_df['receptor_shasl'] = slant_df.apply(lambda row: my_dem_handler.get_nearest_elev(row['receptor_lat'],row['receptor_lon']),axis=1) #get the nearest surface height from the hrrr grid
     slant_df['receptor_zagl'] = slant_df.apply(lambda row: row['receptor_zasl'] - row['receptor_shasl'],axis = 1) #subtract the height of the receptor from the surface height
     slant_df['receptor_z_is_agl'] = slant_df['receptor_zagl'].gt(0) #add the boolean column for if the point is above the ground
     return slant_df
-
-
-def get_slant_df_from_oof(oof_df,z_ail_list,hrrr_elev_df):
-    ''' ***this functionality is depricated, as creating slant columns at each oof timestep is too much***
-    Creates a slant dataframe from a dataframe loaded from an oof file
-    
-    Args: 
-    oof_df (pd.DataFrame) : pandas dataframe loaded from an oof file (probably using oof_manager.df_from_oof()). Must have columns "inst_lat", "inst_lon", "inst_zasl", "spectrum" 
-    z_ail_list (list of floats/ints) : list of receptor z elevations above the instrument level (ail) in meters
-    hrrr_elev_df (pd.DataFrame) : pandas dataframe of the hrrr grid for surface elevations (needs HGT_P0_L1_GLC0)
-
-    Returns:
-    multi_df (pd.DataFrame) : a multi-indexed dataframe with slant data for all of the z values input. Index level 0 is the datetime, index level 1 is the z_ail 
-    '''
-    
-    dt_tz_list = list(oof_df.index) #uses the index of the oof_df to create a list of all the measurement datetimes (timezone-aware) 
-    combined_tuples = list(itertools.product(dt_tz_list,z_ail_list)) #create a combined tuple for creating the multiindex, with item 0=datetime, item 1=z_ail
-    
-    #initialize a bunch of lists to build the dataframe
-    inst_lats = [] 
-    inst_lons = []
-    inst_zasls = []
-    spectrum_names = []
-    receptor_lats = []
-    receptor_lons = []
-    receptor_zasls = []
-
-    print(f'Adding receptor lat/lons along the slant column')
-    i=1
-    for dt,zail in combined_tuples: #loop through the datetime, zail tuples
-        i+=1
-        #Get the lat, lon, zasl, and spectrum name from the oof_df
-        inst_lat = oof_df.loc[dt]['inst_lat'] 
-        inst_lon = oof_df.loc[dt]['inst_lon']
-        inst_zasl = oof_df.loc[dt]['inst_zasl']
-        spectrum_name = oof_df.loc[dt]['spectrum']
-
-        #Get the slant column for each of those points
-        receptor_lat,receptor_lon = slant_lat_lon(inst_lat,inst_lon,dt,zail)
-        receptor_zasl = zail+inst_zasl #add the elevation above sea level by adding above instrument level to the instrument elevation above sea level
-
-        #Append all of the calculated or pulled values to the preallocated lists
-        inst_lats.append(inst_lat)
-        inst_lons.append(inst_lon)
-        inst_zasls.append(inst_zasl)
-        spectrum_names.append(spectrum_name)
-        receptor_lats.append(receptor_lat)
-        receptor_lons.append(receptor_lon)
-        receptor_zasls.append(receptor_zasl)
-
-    multi_df = pd.DataFrame(index = pd.MultiIndex.from_tuples(combined_tuples,names=['dt','z_ail'])) #create the multiindexed dataframe, using the combined tuples
-    
-    #populate the dataframe with the values calculated above
-    multi_df['inst_lat'] = inst_lats 
-    multi_df['inst_lon'] = inst_lons
-    multi_df['inst_zasl'] = inst_zasls
-    multi_df['spectrum'] = spectrum_names
-    multi_df['receptor_lat'] = receptor_lats
-    multi_df['receptor_lon'] = receptor_lons
-    multi_df['receptor_zasl'] = receptor_zasls
-
-    print('Adding surface height and receptor elevation above ground level')
-    multi_df = add_sh_and_agl(multi_df,hrrr_elev_df) #Add the receptor surface heights and elevations above ground level
-
-    return multi_df
 
 def pdcol_is_equal(pdcol):
     '''Checks if all of the values in a column of a dataframe are equal to one another
@@ -573,7 +508,7 @@ class oof_manager:
 class ground_slant_handler:
     '''Class to handle getting slant column receptors'''
 
-    def __init__(self,inst_lat,inst_lon,inst_zasl,z_ail_list,hrrr_subset_path,hrrr_subset_datestr = '2023-01-01'):
+    def __init__(self,inst_lat,inst_lon,inst_zasl,z_ail_list):#,hrrr_subset_path,hrrr_subset_datestr = '2023-01-01'):
         '''
         Args: 
         inst_lat (float) : latitude of instrument
@@ -588,8 +523,8 @@ class ground_slant_handler:
         self.inst_lon = inst_lon
         self.inst_zasl = inst_zasl
         self.z_ail_list = z_ail_list
-        self.hrrr_subset_path = hrrr_subset_path
-        self.hrrr_subset_datestr = hrrr_subset_datestr
+        #self.hrrr_subset_path = hrrr_subset_path
+        #self.hrrr_subset_datestr = hrrr_subset_datestr
 
     def create_initial_slantdf(self,dt_list):
         '''Creates the initial slant dataframe. Will not include any surface elevation data, but gets the receptors in the correct lat/lon/zasl  for the give time periods
@@ -632,7 +567,7 @@ class ground_slant_handler:
         multi_df['receptor_zasl'] = receptor_zasls
         return multi_df
 
-    def run_slant_at_intervals(self,dt1,dt2,interval='1H'):
+    def run_slant_at_intervals(self,dt1,dt2,my_dem_handler,interval='1H'):
         '''Gets a slant dataframe given a datetime range and interval
         
         Args:
@@ -645,48 +580,24 @@ class ground_slant_handler:
                                   the receptor lat, long, zasl, as well as the surface heights and zagl for stilt
         '''
 
-        try:
-            self.hrrr_elev_df #if the hrrr surface height elevation exists, just keep going
-        except:
-            self.load_hrrr_surf_hgts() #if it doesn't exist yet, load it
+        #for hrrr
+        # try:
+        #     self.hrrr_elev_df #if the hrrr surface height elevation exists, just keep going
+        # except:
+        #     self.load_hrrr_surf_hgts() #if it doesn't exist yet, load it
  
         dt_list = create_dt_list(dt1,dt2,interval) #create the dt list based on the range and interval
         multi_df = self.create_initial_slantdf(dt_list) #create the multidf 
 
         print('Adding surface height and receptor elevation above ground level')
-        multi_df = add_sh_and_agl(multi_df,self.hrrr_elev_df) #Add the receptor surface heights and elevations above ground level
+        multi_df = add_sh_and_agl(multi_df,my_dem_handler) #Add the receptor surface heights and elevations above ground level
 
         return multi_df
-    
-    def run_singleday_fromoof(self,oof_filename,dt1_str,dt2_str,tz,z_ail_list):
-        ''' ***this is depricated, as creating multidfs from the oof file results in way too many receptors. may be useful at some point? 
-
-        Gets a multiindexed slant dataframe using an input oof file
-        
-        Args:
-        oof_filename (str) : name of the oof file to load
-        dt1_str (str) : **start datetime of interval to create dataframe for. If dt1_str=="all", will do the whole day
-        dt2_str (str) : end datetime of the interval to create dataframe for. Gets overwritten by "YYYY-mm-dd 23:59:59 if dt1_str=="all" 
-        tz (str) : timezone of measurment location
-        z_ail_list (list) : list of receptor heights above the instrument level, in meters
-        '''
-
-        try: 
-            self.my_oof_manager #if we have the oof manager attribute, keep going
-        except:
-            self.my_oof_manager = oof_manager(self.oof_data_folder,tz) #if we don't, create it
-        try:
-            self.hrrr_elev_df #if the surface heights dataframe exists, keep going
-        except:
-            self.load_hrrr_surf_hgts() #if not, create it 
-        if dt1_str == 'all': #if we want the whole day, dt1_str should be 'all' 
-            dt1_str,dt2_str = get_fulldaystr_from_oofname(oof_filename)  #in this case, get the full day's range and retrieve those datetimes based on the oof filename (has date in name) 
-        oof_df = self.my_oof_manager.load_oof_df_inrange(dt1_str,dt2_str,oof_filename,filter_flag_0=True) #load the oof dataframe
-        slant_df_from_oof = get_slant_df_from_oof(oof_df,z_ail_list,self.hrrr_elev_df) #get the slant dataframe from the loaded oof dataframe
-        return slant_df_from_oof
 
     def load_hrrr_surf_hgts(self):
-        '''Loads the surface height dataframe, or downloads then loads if it doesn't exist yet
+        '''
+        ***This stuff is depricated as of now, using dem_handler
+        Loads the surface height dataframe, or downloads then loads if it doesn't exist yet
         
         Returns: 
         hrrr_elev_xarr_ds (xarray.dataset) : xarray dataset from a grib2 file loaded from hrrr
@@ -710,12 +621,83 @@ class ground_slant_handler:
         return self.hrrr_elev_xarr_ds,self.hrrr_elev_df
 
     def retrieve_hrrr_subset(self):
-        '''Gets a hrrr subset for surface height
+        '''
+        ***This stuff is depricated as of now, using dem_handler
+        Gets a hrrr subset for surface height
         
         Doesn't return anythin, but uses the hrrr_subset_datestring to retrieve the correct subset using herbie
         '''
         H = Herbie(self.hrrr_subset_datestr,model='hrrr',product='sfc',fxx=0,save_dir=f'{self.hrrr_subset_path}') #setup the herbie subset
         H.download('HGT')   #download the height dataset
+
+class DEM_handler:
+    '''Class to handle DEMs... for now'''
+    def __init__(self,dem_folder,dem_fname,dem_typeid):
+        '''
+        Args:
+        dem_folder (str) : path where the DEM is stored
+        dem_fname (str) : name of the DEM file
+        dem_typeid (str) : right now, only functinality for 'aster'. Could use this to add ability to do other DEMS
+        '''
+        self.dem_folder = dem_folder
+        self.dem_fname = dem_fname
+        self.dem_typeid = dem_typeid
+    
+    def define_dem_ds(self):
+        '''Defines the xarray dataset for the DEM
+        The DEM xarray dataset can be defined without loading the whole thing in memory
+        It also defines some other variables that are important based on the dem_typeid
+        '''
+        if self.dem_typeid == 'aster': 
+            self.dem_dataname = 'ASTER_GDEM_DEM' #name of the piece of DEM data we want (in this case this is the surface elevation)
+            self.dem_lonname = 'lon' #name of the longitude dimension
+            self.dem_latname = 'lat' #name of the latitude dimension
+            self.bound_box_deg = 0.01 #size of the bounding box when loading sliced dataarrays around a point. Because this one is fine scale, this is small.
+            #Below load the dataset, but *I don't think* into memory. Some other minor specifications for different DEMS may be needed
+            # as here we want to drop the "time" dimension as there is only one and it gets in the way 
+            self.dem_ds = xr.open_dataset(os.path.join(self.dem_folder,self.dem_fname)).isel(time=0,drop=True) 
+        else:
+            raise Exception(f'DEM Type ID {self.dem_typeid} is not recognized')
+    
+    def get_sub_dem_df(self,pt_lat,pt_lon):
+        '''Loads a dataframe representing a slice of the dataset around a point
+
+        Args:
+        pt_lat (float) : latitude of point around which to load
+        pt_lon (float) : lontitude of a point around which to laod
+
+        Returns:
+        dem_df (pd.DataFrame) : Dataframe with lat, lon and the dem_dataname sliced around a point with a box the size of self.bound_box_deg
+        '''
+        try: 
+            self.dem_ds #if the dataset doesn't exist 
+        except: #load it
+            print('No DEM dataset defined....defining.')
+            self.define_dem_ds()
+        #below is the slicing and loading into memory from the dataset, on a box the bound_box_deg*2 around the input point
+        dem_da = self.dem_ds[self.dem_dataname].sel({self.dem_latname:slice(pt_lat+self.bound_box_deg,pt_lat-self.bound_box_deg),
+                                                     self.dem_lonname:slice(pt_lon-self.bound_box_deg,pt_lon+self.bound_box_deg)}).load()
+        dem_df = dem_da.to_dataframe().reset_index() #make it a dataframe
+        return dem_df
+    
+    def get_nearest_elev(self,pt_lat,pt_lon):
+        '''Gets the nearest elevation to an input point based on the DEM
+        
+        Args:
+        pt_lat (float) : latitude of a point to get the nearest elevation at
+        pt_lon (float) : longitude of a point to get the nearest elevation at
+        
+        Returns:
+        surface_height (float) : value of the surface height at the nearest grid cell in the dem 
+        '''
+        dem_df = self.get_sub_dem_df(pt_lat,pt_lon) #get the df
+        if len(dem_df)==0: #if there is no df, we're outsdie the domain of the DEM, so return nan
+            print('point is outside the DEMs range')
+            return np.nan
+        dem_df['dist'] = np.vectorize(haversine)(dem_df[self.dem_latname],dem_df[self.dem_lonname],pt_lat,pt_lon) #add a distance column for each subpoint using haversine
+        idx = dem_df['dist'].idxmin() #find the minimum distance
+        surface_height = dem_df.loc[idx][self.dem_dataname] #return the value requested
+        return surface_height
 
 def get_stilt_ncfiles(output_dir):
     by_id_fulldir = os.path.join(output_dir,'by-id')
