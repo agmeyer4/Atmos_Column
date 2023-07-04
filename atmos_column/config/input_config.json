@@ -1,8 +1,8 @@
 {
-    "column_type" : "ground", 
+    "column_type" : "em27", 
     "interval" : "1H",
-    "start_dt_str" : "2022-10-19 14:00:00",
-    "end_dt_str" : "2022-10-20 02:00:00",
+    "start_dt_str" : "2022-10-19 16:00:00",
+    "end_dt_str" : "2022-10-19 17:00:00",
     "timezone" : "UTC", 
     "inst_lat" : 40.766,
     "inst_lon" : -111.847,

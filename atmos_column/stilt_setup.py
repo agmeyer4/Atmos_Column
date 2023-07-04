@@ -214,7 +214,7 @@ def main():
     configs = run_config.run_config_obj(config_json_fname='input_config.json')
     structure_check.directory_checker(configs,run=True)
 
-    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'stilt1')
+    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'stilt2')
     stilt_setup_inst.full_setup()
 
 if __name__=='__main__':
