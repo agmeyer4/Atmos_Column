@@ -19,6 +19,7 @@ dependencies:
   - pytz
   - pysolar
   - plotly
+  - netcdf4
   - pip
   - pip:
     - simplekml
