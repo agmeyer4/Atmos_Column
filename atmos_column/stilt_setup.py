@@ -36,11 +36,15 @@ class stilt_setup:
         for all receptor files that fit the date criteria in find_resceptor_files. '''
 
         stilt_init(self.configs,stilt_name=self.stilt_name) #initialize the stilt project if necessary
+        #self.create_rec_folder_in_stilt()
         receptor_fnames = self.find_receptor_files() #find the receptor files that fit the config and datetime range criteria
         if len(receptor_fnames) == 0: #if there aren't any files in the range
             raise Exception('No receptor files found matching column type in date range') #raise an exception
         self.rewrite_run_stilt(receptor_fnames) #rewrite the run_stilt.r file with the correct configs and receptors
         self.move_new_runstilt() #move the newly rewritten run_stilt file to the STILT project directory 
+
+    def create_rec_folder_in_stilt(self):
+        os.mkdir(os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'receptors'))
 
     def find_receptor_files(self):
         '''Finds the receptor files in atmos_column/output/receptors/{column_type} that match the datetime range criteria
@@ -214,7 +218,7 @@ def main():
     configs = run_config.run_config_obj(config_json_fname='input_config.json')
     structure_check.directory_checker(configs,run=True)
 
-    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'stilt2')
+    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'stilt3')
     stilt_setup_inst.full_setup()
 
 if __name__=='__main__':

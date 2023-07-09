@@ -30,7 +30,7 @@ def main():
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
         rec_creator_inst = cr.receptor_creator(configs,dt_range['dt1'],dt_range['dt2']) #Create the receptor creator class
         rec_creator_inst.create_receptors() #create the receptors
-        stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2'],stilt_name = 'stilt2') #create the stilt setup class
+        stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2'],stilt_name = 'stilt3') #create the stilt setup class
         stilt_setup_inst.full_setup() #do a full stilt setup
 
 if __name__=='__main__':

@@ -78,13 +78,17 @@ def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon
     print('Changing slant df to receptor style df')
     df1 = df.copy() #copy the df
     df1 = df1.reset_index() #reset the index, especially necessary in the case of multiindexing
+    df1 = df1.reset_index() #reset it again so we can get a simulation id from the numerical index
     df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl'}) #rename the columns
-    df1 = df1[['run_times','lati','long','zagl','z_is_agl']] #only get the columns we need
+    df1 = df1[['run_times','lati','long','zagl','z_is_agl','index']] #only get the columns we need
     #do some rounding so we don't have to write a bunch of digits
     df1['lati'] = df1['lati'].round(4)
     df1['long'] = df1['long'].round(4)
     df1['zagl'] = df1['zagl'].round(2)
     df1['run_times'] = df1['run_times'].round('S')
+
+    df1['sim_id'] = df1.apply(lambda row: f"{row['run_times'].year}_{row['run_times'].month}_{row['run_times'].day}_{row['index']}",axis=1)
+
     #df1['run_times'] = df1['run_times'].dt.tz_localize(None)
     df1 = df1.dropna() #drop na values, usually where the sun is not up 
     return df1
