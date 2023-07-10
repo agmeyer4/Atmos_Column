@@ -133,6 +133,12 @@ class stilt_setup:
                     new_run_stilt_file.write('\n')
                 else: #if the second element isnt '<-', we don't want to replace it 
                     new_run_stilt_file.write(line) #so just write the line
+            elif line_split[0] == 'simulation_id': #replace the simulation ID line with the sim_id column from receptors
+                    if line_split[1] == '<-':
+                        new_run_stilt_file.write(' '.join([line_split[0],line_split[1],'receptors$sim_id'])) 
+                        new_run_stilt_file.write('\n')      
+                    else:
+                        new_run_stilt_file.write(line)          
             else: #if the line doesn't have a new value in run_stilt_configs
                 new_run_stilt_file.write(line) #just write the original line
         new_run_stilt_file.close() #close the file

@@ -1,8 +1,8 @@
 {
     "column_type" : "em27", 
     "interval" : "1H",
-    "start_dt_str" : "2022-10-19 15:00:00",
-    "end_dt_str" : "2022-10-19 16:00:00",
+    "start_dt_str" : "2022-10-20 00:00:00",
+    "end_dt_str" : "2022-10-20 23:59:59",
     "timezone" : "UTC", 
     "inst_lat" : 40.766,
     "inst_lon" : -111.847,
@@ -26,13 +26,12 @@
     "run_stilt_configs":{
         "met_path" : "'/uufs/chpc.utah.edu/common/home/lin-group9/hrrr/hrrr'",
         "met_file_format" : "'%Y%m%d_%H'",
-        "xmn" : -112.3,
-        "xmx" : -111.52,
-        "ymn" : 40.390,
-        "ymx" : 41.346,
+        "xmn" : -112.4,
+        "xmx" : -110.8,
+        "ymn" : 40.0,
+        "ymx" : 41.4,
         "xres" : 0.01,
         "yres" : "xres",
-        "numpar" : 200,
-        "simulation_id" : "receptors$sim_id"
+        "numpar" : 200
     }
 }
