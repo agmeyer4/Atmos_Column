@@ -36,15 +36,20 @@ class stilt_setup:
         for all receptor files that fit the date criteria in find_resceptor_files. '''
 
         stilt_init(self.configs,stilt_name=self.stilt_name) #initialize the stilt project if necessary
-        #self.create_rec_folder_in_stilt()
+        self.create_rec_folder_in_stilt()
         receptor_fnames = self.find_receptor_files() #find the receptor files that fit the config and datetime range criteria
+        self.cp_recfile_to_stiltdir(receptor_fnames)
         if len(receptor_fnames) == 0: #if there aren't any files in the range
             raise Exception('No receptor files found matching column type in date range') #raise an exception
         self.rewrite_run_stilt(receptor_fnames) #rewrite the run_stilt.r file with the correct configs and receptors
         self.move_new_runstilt() #move the newly rewritten run_stilt file to the STILT project directory 
 
     def create_rec_folder_in_stilt(self):
-        os.mkdir(os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'receptors'))
+        rec_folder = os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'receptors')
+        if os.path.isdir(rec_folder):
+            print('receptor folder already exists in the stilt directory')
+            return
+        os.mkdir(rec_folder)
 
     def find_receptor_files(self):
         '''Finds the receptor files in atmos_column/output/receptors/{column_type} that match the datetime range criteria
@@ -68,7 +73,11 @@ class stilt_setup:
             day = self.dt1.date() + datetime.timedelta(days=i) #get the day by incrementing by i (how many days past the start)
             daystrings_in_range.append(day.strftime('%Y%m%d')) #append a string of the date (YYYYmmdd) to match with filenames
         return daystrings_in_range
-    
+
+    def cp_recfile_to_stiltdir(self,receptor_fnames):
+        for receptor_fname in receptor_fnames:
+            os.popen(f"cp {os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type,receptor_fname)} {os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'receptors',receptor_fname)}")
+
     def rewrite_run_stilt(self,receptor_fnames):
         '''This method rewrites the original run_stilt.r file in the STILT/r directory to match the configurations needed. The newly written 
         file is saved to atmos_column/temp/ac_run_stilt.r. 
@@ -151,7 +160,7 @@ class stilt_setup:
         '''
 
         #write the path line string based on the configurations and filepaths
-        path_line_str = "rec_path <- '{}/{}/{}'".format(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type)
+        path_line_str = "rec_path <- '{}/{}/{}'".format(self.configs.folder_paths['stilt_folder'],self.stilt_name,'receptors')
         
         #write the filenames string. we want it to be an array of strings when written in the run_stilt.r file, so append each one
         filenames_line_str = "rec_filenames <- c(" #start with the variable name and start the character array 
@@ -224,7 +233,7 @@ def main():
     configs = run_config.run_config_obj(config_json_fname='input_config.json')
     structure_check.directory_checker(configs,run=True)
 
-    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'stilt3')
+    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'test')
     stilt_setup_inst.full_setup()
 
 if __name__=='__main__':

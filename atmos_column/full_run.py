@@ -28,7 +28,7 @@ def main():
     structure_check.directory_checker(configs,run=True) #check the structure
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
-        stilt_name = f"{dt_range['dt1'].year}{dt_range['dt1'].month}{dt_range['dt1'].day}_stilt"
+        stilt_name = f"{dt_range['dt1'].year:04}{dt_range['dt1'].month:02}{dt_range['dt1'].day:02}_stilt"
         rec_creator_inst = cr.receptor_creator(configs,dt_range['dt1'],dt_range['dt2']) #Create the receptor creator class
         rec_creator_inst.create_receptors() #create the receptors
         stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2'],stilt_name = stilt_name) #create the stilt setup class
