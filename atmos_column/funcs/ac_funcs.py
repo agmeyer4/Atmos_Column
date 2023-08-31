@@ -12,6 +12,7 @@ import numpy as np
 import os
 import datetime
 import itertools
+import shutil
 import pytz
 import pysolar.solar as solar
 from geographiclib.geodesic import Geodesic
@@ -508,6 +509,25 @@ class oof_manager:
         inst_lon = oof_df.iloc[0]['inst_lon']
         inst_zasl = oof_df.iloc[0]['inst_zasl']
         return inst_lat,inst_lon,inst_zasl   
+    
+def copy_em27_oofs_to_singlefolder(existing_results_path,oof_destination_path):
+    '''Copies oof files from the EM27 results path to a single directory
+    
+    Args:
+    existing_results_path (str) : path to the results folder. Within this folder should be a 'daily' and further date subfolders.
+    oof_destination_path (str) : path to the folder where the oof files will be copied
+    '''
+
+    files_to_transfer = []
+    daily_results_folder = os.path.join(existing_results_path,'daily') 
+    for datefolder in os.listdir(daily_results_folder):
+        for file in os.listdir(os.path.join(daily_results_folder,datefolder)):
+            if file.endswith('.vav.ada.aia.oof'):
+                full_filepath = os.path.join(daily_results_folder,datefolder,file)
+                files_to_transfer.append(full_filepath)
+    print('Copying Files')
+    for full_filepath in files_to_transfer:
+        shutil.copy(full_filepath,oof_destination_path)
 
 class ground_slant_handler:
     '''Class to handle getting slant column receptors'''
