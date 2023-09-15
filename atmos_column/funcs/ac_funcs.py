@@ -32,12 +32,12 @@ def wdws_to_uv(ws,wd):
     u (float) : u component of wind vector (positive u wind is from west)
     v (float) : v component of wind vector (positiv v wind is from south)
     '''
-    wd_new_ref = 270-wd #get to mathematical direction from meteorological direction
+    wd_math_ref = 270-wd #get to mathematical direction from meteorological direction
     if ws < 0.01: #with very low winds, just set to 0 so we dont get weird values
         u=v=0
         return u,v
-    u = ws*np.cos(np.deg2rad(wd)) #u is the cosine 
-    v = ws*np.sin(np.deg2rad(wd)) #v is the sine
+    u = ws*np.cos(np.deg2rad(wd_math_ref)) #u is the cosine 
+    v = ws*np.sin(np.deg2rad(wd_math_ref)) #v is the sine
     return u,v
 
 def uv_to_wdws(u,v):
@@ -56,10 +56,14 @@ def uv_to_wdws(u,v):
     if ws <0.01: #deal with very low winds -- wind direction undefined at low winds
         wd = np.nan
         return ws,wd
-    wd = np.rad2deg(np.arctan2(v,u)) #get the wind direciton
-    if wd<0: #the above returns values between -180 and 180, so add 360 to negative values to get output between 0 and 360
-        wd = wd+360
-    return ws,wd
+    wd_math_ref = np.rad2deg(np.arctan2(v,u)) #get the wind direciton
+    wd_met_ref = 270-wd_math_ref #shift to meteorological reference
+
+    if wd_met_ref<0: #the above returns values between -180 and 180, so add 360 to negative values to get output between 0 and 360
+        wd_met_ref = wd_met_ref+360
+    elif wd_met_ref > 360:
+        wd_met_ref = wd_met_ref-360
+    return ws,wd_met_ref
 
 def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt',rec_is_agl_colname='receptor_z_is_agl'):
     '''Converts a slant dataframe to the form required for a receptor dataframe, including the column names that can be read by r stilt
