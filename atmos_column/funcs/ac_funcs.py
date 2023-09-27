@@ -352,11 +352,12 @@ class oof_manager:
         dt = pytz.timezone(self.timezone).localize(dt) #apply the timezone
         return dt
 
-    def df_from_oof(self,filename):
+    def df_from_oof(self,filename,fullformat = False,filter_flag_0 = False):
         '''Load a dataframe from an oof file
         
         Args:
         filename (str) : name of the oof file (not the full path)
+        fullformat (bool) : if you want to do the full format
         
         Returns:
         df (pd.DataFrame) : a pandas dataframe loaded from the em27 oof file with applicable columns added/renamed
@@ -367,6 +368,10 @@ class oof_manager:
         df['inst_zasl'] = df['zobs(km)']*1000 #add the instrument z elevation in meters above sea level (instead of km)
         df['inst_lat'] = df['lat(deg)'] #rename the inst lat column
         df['inst_lon'] = df['long(deg)'] #rename the inst lon column 
+        if fullformat:
+            df = self.df_dt_formatter(df)
+        if filter_flag_0:
+            df = df.loc[df['flag']==0]
         return df
 
     def read_oof_header_line(self,full_file_path):
