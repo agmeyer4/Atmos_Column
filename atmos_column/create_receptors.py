@@ -148,7 +148,8 @@ def main():
     Main run using <python create_receptors.py> will load the configs and create the receptors in 
     output/receptors/{column_type}/YYYYmmdd_HHMMSS_HHMMSS.csv for each day in the config range. 
     '''
-    configs = run_config.run_config_obj(config_json_fname='input_config.json') #load the configs
+    config_json_fname = 'input_config_aug9.json'
+    configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load the configs
     structure_check.directory_checker(configs,run=True) #check the structure
     for dt_range in configs.split_dt_ranges: #iterate by day
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 

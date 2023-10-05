@@ -229,8 +229,8 @@ class met_handler:
 
 def main():
     '''This main function will setup the stilt project using the configuration file'''
-
-    configs = run_config.run_config_obj(config_json_fname='input_config.json')
+    config_json_fname = 'input_config_aug9.json'
+    configs = run_config.run_config_obj(config_json_fname=config_json_fname)
     structure_check.directory_checker(configs,run=True)
 
     stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'test')

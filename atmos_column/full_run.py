@@ -24,7 +24,8 @@ import stilt_setup as ss
 from config import run_config, structure_check
 
 def main():
-    configs = run_config.run_config_obj(config_json_fname='input_config.json') #load configuration data from atmos_column/config
+    config_json_fname = 'input_config_jul11.json'
+    configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
     structure_check.directory_checker(configs,run=True) #check the structure
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
