@@ -1,3 +1,5 @@
+'''Basic script to check for oof files in a results folder, day by day'''
+
 import os
 results_folder = input('Base Results folder with cumulative/daily and date folders : ')
 if not os.path.isdir(results_folder):
