@@ -12,6 +12,7 @@ import os
 from config import run_config, structure_check
 import subprocess
 import datetime
+import shutil
 
 class stilt_setup:
     '''This class sets up a STILT run based on the configs and datetime inputs'''
@@ -176,8 +177,8 @@ class stilt_setup:
         new_run_stilt_path = os.path.join(self.configs.folder_paths['base_project_folder'],'Atmos_Column','atmos_column','temp') #where it should be stored
         new_run_stilt_fname = 'ac_run_stilt.r' #should be this name
         official_run_stilt_path = os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'r') #path to the stilt project r directory
-        os.rename(os.path.join(new_run_stilt_path,new_run_stilt_fname),os.path.join(official_run_stilt_path,new_run_stilt_fname)) #move the file
-
+        #os.rename(os.path.join(new_run_stilt_path,new_run_stilt_fname),os.path.join(official_run_stilt_path,new_run_stilt_fname)) #move the file
+        shutil.move(os.path.join(new_run_stilt_path,new_run_stilt_fname),os.path.join(official_run_stilt_path,new_run_stilt_fname))
 def stilt_init(configs,stilt_name='stilt'):
     '''Method to initialize the STILT project if it isn't already
     

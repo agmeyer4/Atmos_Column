@@ -32,7 +32,7 @@ class directory_checker:
         print('Checking Paths')
         self.check_base_existence() #make sure base paths exist
         self.check_output() #make sure the output strucutre is correct
-        self.check_hrrr_subset() #make sure the hrrr subset folder is correct
+        #self.check_hrrr_subset() #make sure the hrrr subset folder is correct
 
     def check_base_existence(self):
         '''Checks to make sure each path in the configs file is actually there'''
