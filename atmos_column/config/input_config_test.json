@@ -21,7 +21,7 @@
     "met_product":"nat",
     "dem_fname" : "ASTGTM_NC.003_30m_aid0001_slcbig.nc",
     "dem_typeid" : "aster",
-    "cores":"max",
+    "cores":16,
     "run_stilt_configs":{
         "met_path" : "'/uufs/chpc.utah.edu/common/home/lin-group12/hrrr/hrrr'",
         "met_file_format" : "'%Y%m%d_%H'",
@@ -31,6 +31,7 @@
         "ymx" : 41.4,
         "xres" : 0.01,
         "yres" : "xres",
-        "numpar" : 200
+        "numpar" : 200,
+        "slurm" : "T"
     }
 }

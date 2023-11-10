@@ -22,11 +22,14 @@ import os
 import create_receptors as cr
 import stilt_setup as ss
 from config import run_config, structure_check
+import subprocess
+import sys
 
 def main():
     config_json_fname = 'input_config_test.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
     structure_check.directory_checker(configs,run=True) #check the structure
+
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
         stilt_name = f"{dt_range['dt1'].year:04}{dt_range['dt1'].month:02}{dt_range['dt1'].day:02}_stilt"
@@ -34,6 +37,9 @@ def main():
         rec_creator_inst.create_receptors() #create the receptors
         stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2'],stilt_name = stilt_name) #create the stilt setup class
         stilt_setup_inst.full_setup() #do a full stilt setup
+
+        print(f'Running ac_run_stilt.r for {dt_range}')
+        subprocess.call(['Rscript', os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')]) #run stilt
 
 if __name__=='__main__':
     main()
