@@ -84,8 +84,10 @@ def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon
     df1 = df.copy() #copy the df
     df1 = df1.reset_index() #reset the index, especially necessary in the case of multiindexing
     df1 = df1.reset_index() #reset it again so we can get a simulation id from the numerical index
-    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl'}) #rename the columns
-    df1 = df1[['run_times','lati','long','zagl','z_is_agl','index']] #only get the columns we need
+    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',
+                              run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl',
+                              'index':'sim_id'}) #rename the columns
+    df1 = df1[['run_times','lati','long','zagl','z_is_agl','sim_id']] #only get the columns we need
     #do some rounding so we don't have to write a bunch of digits
     df1['lati'] = df1['lati'].round(4)
     df1['long'] = df1['long'].round(4)
@@ -94,7 +96,8 @@ def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon
 
     #TODO This sucks, want just an id then refer back to the receptor file for details. 
     #df1['sim_id'] = df1.apply(lambda row: f"{row['run_times'].year}_{row['run_times'].month}_{row['run_times'].day}_{row['index']}",axis=1)
-    df1['sim_id'] = df1.apply(lambda row: f"{row['run_times'].year}{row['run_times'].month:02}{row['run_times'].day:02}{row['run_times'].hour:02}{row['run_times'].minute:02}{row['run_times'].second:02}_{round(row['lati'],4)}_{round(row['long'],4)}_{round(row['zagl'],2)}_{row['index']}",axis=1)
+    #df1['sim_id'] = df1.apply(lambda row: f"{row['run_times'].year}{row['run_times'].month:02}{row['run_times'].day:02}{row['run_times'].hour:02}{row['run_times'].minute:02}{row['run_times'].second:02}_{round(row['lati'],4)}_{round(row['long'],4)}_{round(row['zagl'],2)}_{row['index']}",axis=1)
+    #df1['sim_id'] = df1['index']
 
     #df1['run_times'] = df1['run_times'].dt.tz_localize(None)
     df1 = df1.dropna() #drop na values, usually where the sun is not up 

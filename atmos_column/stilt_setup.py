@@ -35,11 +35,22 @@ class stilt_setup:
         '''This does the full setup for a STILT project by creating it if necessary, finding receptors, and rewriting/moving run_stilt.r
         TODO make it so that you can subselect what type of receptor files you want to use for the run. Right now it just grabs all (and will run multiple)
         for all receptor files that fit the date criteria in find_resceptor_files. '''
+        
+        #There is a weird bug where sometimes the stilt initialization script doesn't work -- this is a hack to catch that and try again
+        successful_setup=False
+        while successful_setup == False:
+            response = stilt_init(self.configs,stilt_name=self.stilt_name) #initialize the stilt project if necessary, grab the response
+            if int(response)==0: #0 is a successful setup, so exit this
+                successful_setup = True
+            else: #if it wasn't successful, keep trying. this could maybe cause an infinite loop if some other aspect of the setup is going awry consistently
+                print('stilt setup failed due to random bug (see terminal output), retrying')
+                continue
 
-        stilt_init(self.configs,stilt_name=self.stilt_name) #initialize the stilt project if necessary
         self.create_rec_folder_in_stilt()
         receptor_fnames = self.find_receptor_files() #find the receptor files that fit the config and datetime range criteria
-        self.cp_recfile_to_stiltdir(receptor_fnames)
+        self.mv_recfile_to_stiltdir(receptor_fnames)
+        self.create_config_folder_in_stilt() #make a folder in the stilt project to copy config to
+        self.cp_configfile_to_stiltdir() #copy the config in
         if len(receptor_fnames) == 0: #if there aren't any files in the range
             raise Exception('No receptor files found matching column type in date range') #raise an exception
         self.rewrite_run_stilt(receptor_fnames) #rewrite the run_stilt.r file with the correct configs and receptors
@@ -51,6 +62,13 @@ class stilt_setup:
             print('receptor folder already exists in the stilt directory')
             return
         os.mkdir(rec_folder)
+
+    def create_config_folder_in_stilt(self):
+        config_folder = os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'config')
+        if os.path.isdir(config_folder):
+            print('config folder already exists in the stilt directory')
+            return
+        os.mkdir(config_folder)
 
     def find_receptor_files(self):
         '''Finds the receptor files in atmos_column/output/receptors/{column_type} that match the datetime range criteria
@@ -75,9 +93,16 @@ class stilt_setup:
             daystrings_in_range.append(day.strftime('%Y%m%d')) #append a string of the date (YYYYmmdd) to match with filenames
         return daystrings_in_range
 
-    def cp_recfile_to_stiltdir(self,receptor_fnames):
+    def mv_recfile_to_stiltdir(self,receptor_fnames):
+        '''Moves the receptor file to the appropriate directory within the STILT project folder'''
+
         for receptor_fname in receptor_fnames:
-            os.popen(f"cp {os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type,receptor_fname)} {os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'receptors',receptor_fname)}")
+            os.popen(f"mv {os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type,receptor_fname)} {os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'receptors',receptor_fname)}")
+
+    def cp_configfile_to_stiltdir(self):
+        '''Copies the configuration file from the local config path to the STILT project folder for reference'''
+        
+        os.popen(f"cp {self.configs.config_json_fullpath} {os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'config',os.path.split(self.configs.config_json_fullpath)[1])}")
 
     def rewrite_run_stilt(self,receptor_fnames):
         '''This method rewrites the original run_stilt.r file in the STILT/r directory to match the configurations needed. The newly written 
@@ -197,6 +222,7 @@ def stilt_init(configs,stilt_name='stilt'):
     os.chdir(configs.folder_paths['stilt_folder']) #change into the stilt folder
     uataq_command = f"uataq::stilt_init('{stilt_name}')" #write the uataq command to be joined with the subprocess call
     response = subprocess.call(['Rscript','-e', uataq_command]) #this is the official stilt init command
+    return response
 
 class met_handler:
     '''A class to handle getting the met data for running STILT 
@@ -231,7 +257,7 @@ class met_handler:
 
 def main():
     '''This main function will setup the stilt project using the configuration file'''
-    config_json_fname = 'input_config_aug9.json'
+    config_json_fname = 'input_config_test.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname)
     structure_check.directory_checker(configs,run=True)
 
