@@ -31,7 +31,6 @@ class receptor_creator:
         dt1 (datetime.datetime) : beginning datetime
         dt2 (datetime.datetime) : ending datetime 
         '''
-
         self.configs = configs
         self.dt1 = dt1
         self.dt2 = dt2
@@ -71,7 +70,8 @@ class receptor_creator:
         gsh = ac.ground_slant_handler(inst_lat,
                                       inst_lon,
                                       inst_zasl,
-                                      self.configs.z_ail_list) #create the slant handler    
+                                      self.configs.z_ail_list) #create the slant handler   
+        self.configs.inst_lat,self.configs.inst_lon,self.configs.inst_zasl = inst_lat,inst_lon,inst_zasl #add the inst location taken from oof to the config object
         #Run from the interval before the start and after the end of the oof dataframe, rather than the whole day (clip to oof data)   
         dt1_oof = oof_df.index[0].floor(self.configs.interval)  #floor is rounding down to the nearest interval
         dt2_oof = oof_df.index[-1].ceil(self.configs.interval) #ceil is rounding up to the nearest interval
@@ -97,7 +97,7 @@ class receptor_creator:
         print(f'Column type is generic "ground"')
         print(f'Instrument lat/lon/zasl taken from configs file')
         print(f"Creating receptors for {len(self.configs.split_dt_ranges)} dates in range.")
-
+        print(self.configs.inst_lat)
         gsh = ac.ground_slant_handler(self.configs.inst_lat,
                                     self.configs.inst_lon,
                                     self.configs.inst_zasl,
@@ -121,10 +121,10 @@ class receptor_creator:
         dt1 (datetime.datetime) : start datetime
         dt2 (datetime.datetime) : end datetime
         '''
-
         with open(full_fname,'w') as f: #open the file
             f.write('Receptor file created using atmos_column.create_receptors\n') #Write some info
             f.write(f'Column type: {self.configs.column_type}\n') #like the column type
+            f.write(f'Instrument Location: {self.configs.inst_lat}, {self.configs.inst_lon}, {self.configs.inst_zasl}masl\n')#the instrument info
             f.write(f"Created at: {datetime.datetime.now(tz=datetime.UTC)}\n") #when the code was run
             f.write(f"Data date: {dt1.strftime('%Y-%m-%d')}\n") #the date of the data
             f.write(f"Datetime range: {dt1} to {dt2}\n") #and the range

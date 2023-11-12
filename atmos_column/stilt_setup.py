@@ -13,6 +13,7 @@ from config import run_config, structure_check
 import subprocess
 import datetime
 import shutil
+import sys
 
 class stilt_setup:
     '''This class sets up a STILT run based on the configs and datetime inputs'''
@@ -43,8 +44,16 @@ class stilt_setup:
             if int(response)==0: #0 is a successful setup, so exit this
                 successful_setup = True
             else: #if it wasn't successful, keep trying. this could maybe cause an infinite loop if some other aspect of the setup is going awry consistently
-                print('stilt setup failed due to random bug (see terminal output), retrying')
-                continue
+                print('stilt setup failed likely due to random bug (see terminal output).')
+                stilt_fullpath_to_del =os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name)
+                retry = input(f'Do you want to delete the folder {stilt_fullpath_to_del} and try again (y/n): ')
+                if retry == 'y':
+                    print('deleting and retrying')
+                    del_statement = f"rm -rf {stilt_fullpath_to_del}"
+                    os.popen(del_statement)
+                    continue
+                else:
+                    sys.exit('Stopping operation here')
 
         self.create_rec_folder_in_stilt()
         receptor_fnames = self.find_receptor_files() #find the receptor files that fit the config and datetime range criteria

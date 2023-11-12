@@ -86,8 +86,9 @@ def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon
     df1 = df1.reset_index() #reset it again so we can get a simulation id from the numerical index
     df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',
                               run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl',
-                              'index':'sim_id'}) #rename the columns
-    df1 = df1[['run_times','lati','long','zagl','z_is_agl','sim_id']] #only get the columns we need
+                              'index':'sim_id','receptor_zasl':'zasl','z_ail':'zail'}) #rename the columns
+
+    df1 = df1[['run_times','lati','long','zagl','z_is_agl','sim_id','zasl','zail']] #only get the columns we need
     #do some rounding so we don't have to write a bunch of digits
     df1['lati'] = df1['lati'].round(4)
     df1['long'] = df1['long'].round(4)
