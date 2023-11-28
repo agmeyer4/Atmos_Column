@@ -743,9 +743,9 @@ def get_stilt_ncfiles(output_dir):
         #     print(f"{id}: {os.path.join(by_id_fulldir,id)/}")
 
 def main():
-    output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'
-    get_stilt_ncfiles(output_dir)
-    
+    #output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'
+    #get_stilt_ncfiles(output_dir)
+    copy_em27_oofs_to_singlefolder('/uufs/chpc.utah.edu/common/home/lin-group15/agm/em27/ha/results','/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/fall_2023')
 
 if __name__ == "__main__":
    main()
