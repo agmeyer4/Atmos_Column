@@ -31,7 +31,7 @@ site -- this must be done manually for now. To use this module, follow the follo
 import os
 import pandas as pd
 
-def split_and_write_daily(input_csv_fullpath,header_change,output_folder):
+def split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=None):
     '''This is the main script to check a monthly mesowest data file, split it into daily files, format for use in GGG
     and write to separate day files (YYYYMMDD_WBB.txt). 
     
@@ -39,6 +39,7 @@ def split_and_write_daily(input_csv_fullpath,header_change,output_folder):
     input_csv_fullpath (str): full filepath of the monthly mesowest file to parse
     header_change (dict): the mapping from headers in the mesowest file to their appropriate headers for a GGG met file
     output_folder (str): path to a folder where the daily separated files will be stored
+    instrument_tag (str): two letter tag to add to the filename indicating an EM27 instrument. Default None (no tag)
     '''
 
     is_utc,site_id = utc_and_siteid(input_csv_fullpath) #test to make sure the data is in UTC
@@ -46,7 +47,7 @@ def split_and_write_daily(input_csv_fullpath,header_change,output_folder):
         raise Exception('Monthly data file is not in UTC time, check your download settings and try again')
     print(f'Load the full dataframe for {input_csv_fullpath}')
     full_df = load_transform_fullmonth(input_csv_fullpath,header_change) #load the entire month into a dataframe
-    daily_data = split_into_daydfs(full_df,site_id) #split into days
+    daily_data = split_into_daydfs(full_df,site_id,instrument_tag = instrument_tag) #split into days
     for data in daily_data: #run through the days
         filename = data[0]
         df = data[1]
@@ -68,7 +69,7 @@ def utc_and_siteid(input_csv_fullpath):
         for i in range(0,10):
             line = f.readline()
             if line.startswith('# STATION:'):
-                site_id = line.split(' ')[-1]
+                site_id = line.split(' ')[-1].strip()
         if 'UTC' not in line:
             return False,site_id
         else:
@@ -97,11 +98,13 @@ def load_transform_fullmonth(input_csv_fullpath,header_change):
     full_df = full_df[keep_cols] #only keep the keep columns
     return full_df
         
-def split_into_daydfs(full_df,site_id):
+def split_into_daydfs(full_df,site_id,instrument_tag):
     '''Splits a full month dataframe into individual days, and create the txt label based on date
     
     Args:
     full_df (pandas.DataFrame): a pandas dataframe of the form (headers, pressure values, etc) for writing to a txt for GGG
+    site_id (str) : site id of the mesowest station, pulled from the header (like WBB)
+    instrument_tag (str) : string indicating the EM27 instrument if desired. Added to the filename if not none. 
 
     Returns:
     daily_data (list): a list of lists. Each element of the list represents one day. The first subelement is the filename as 
@@ -111,7 +114,10 @@ def split_into_daydfs(full_df,site_id):
     daily_data = [] #intitialize the list
     for group in full_df.groupby(full_df.index.date): #group by date
         day_df = group[1] #the df is the 1 element of the list
-        day_label = f'{group[0].year:04d}{group[0].month:02d}{group[0].day:02d}_{site_id}.txt' #this is the label of the file to be written
+        if instrument_tag is not None:
+            day_label = f'{group[0].year:04d}{group[0].month:02d}{group[0].day:02d}_{instrument_tag}.{site_id}.txt' #this is the label of the file to be written
+        else:
+            day_label = f'{group[0].year:04d}{group[0].month:02d}{group[0].day:02d}.{site_id}.txt' #this is the label of the file to be written
         daily_data.append([day_label,day_df]) #append the label and df to the list 
     return daily_data
 
@@ -143,5 +149,6 @@ if __name__ == "__main__":
                     'relative_humidity_set_1':'RH',
                     'wind_speed_set_1':'WSPD',
                     'wind_direction_set_1':'WDIR'}
+    instrument_tag = 'HA'
 
-    split_and_write_daily(input_csv_fullpath,header_change,output_folder)
+    split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
