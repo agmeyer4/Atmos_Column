@@ -21,5 +21,6 @@ dependencies:
   - plotly
   - netcdf4
   - pip
+  - boto3
   - pip:
     - simplekml
