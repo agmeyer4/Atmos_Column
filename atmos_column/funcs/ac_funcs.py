@@ -314,7 +314,7 @@ class oof_manager:
         self.oof_data_folder = oof_data_folder
         self.timezone = timezone
 
-    def load_oof_df_inrange(self,dt1,dt2,filter_flag_0=False):
+    def load_oof_df_inrange(self,dt1,dt2,filter_flag_0=False,print_out=False):
         '''Loads a dataframe from an oof file for datetimes between the input values
         
         Args:
@@ -332,6 +332,8 @@ class oof_manager:
         oof_files_inrange = self.get_oof_in_range(dt1,dt2)
         full_df = pd.DataFrame()
         for oof_filename in oof_files_inrange:
+            if print_out:
+                print(f'Loading {oof_filename}')
             df = self.df_from_oof(oof_filename) #load the oof file to a dataframe
             df = self.df_dt_formatter(df) #format the dataframe to the correct datetime and column name formats
             df = df.loc[(df.index>=dt1)&(df.index<=dt2)] #filter the dataframe between the input datetimes
