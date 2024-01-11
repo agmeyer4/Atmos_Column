@@ -314,7 +314,7 @@ class oof_manager:
         self.oof_data_folder = oof_data_folder
         self.timezone = timezone
 
-    def load_oof_df_inrange(self,dt1,dt2,filter_flag_0=False,print_out=False):
+    def load_oof_df_inrange(self,dt1,dt2,filter_flag_0=False,print_out=False,cols_to_load=None):
         '''Loads a dataframe from an oof file for datetimes between the input values
         
         Args:
@@ -322,6 +322,8 @@ class oof_manager:
         dt2_str (str) : string for the end time of the desired range of form "YYYY-mm-dd HH:MM:SS" 
         oof_filename (str) : name of the oof file to load
         filter_flag_0 (bool) : True will filter the dataframe to rows where the flag column is 0 (good data), false returns all the data
+        print_out (bool) : Will print a message telling the user that they are loading a certain oof file. Default False. 
+        cols_to_load (list) : List of strings that are the names of the oof data columns to load. Default is None, which loads all of the columns. 
 
         Returns:
         df (pd.DataFrame) : pandas dataframe loaded from the oof files, formatted date, and column names       
@@ -334,13 +336,55 @@ class oof_manager:
         for oof_filename in oof_files_inrange:
             if print_out:
                 print(f'Loading {oof_filename}')
-            df = self.df_from_oof(oof_filename) #load the oof file to a dataframe
-            df = self.df_dt_formatter(df) #format the dataframe to the correct datetime and column name formats
+            df = self.df_from_oof(oof_filename,fullformat = True, filter_flag_0 = filter_flag_0, cols_to_load=cols_to_load) #load the oof file to a dataframe
+            #df = self.df_dt_formatter(df) #format the dataframe to the correct datetime and column name formats
             df = df.loc[(df.index>=dt1)&(df.index<=dt2)] #filter the dataframe between the input datetimes
-            if filter_flag_0: #if we want to filter by flag
-                df = df.loc[df['flag'] == 0] #then do it!
+            #if filter_flag_0: #if we want to filter by flag
+            #    df = df.loc[df['flag'] == 0] #then do it!
             full_df = pd.concat([full_df,df])
         return full_df
+
+    def df_from_oof(self,filename,fullformat = False,filter_flag_0 = False,cols_to_load=None):
+        '''Load a dataframe from an oof file
+        
+        Args:
+        filename (str) : name of the oof file (not the full path)
+        fullformat (bool) : if you want to do the full format
+        filter_flag_0 (bool) : if you want to only get the 0 flags (good data), set to True
+        cols_to_load (list) : list of strings of the oof columns you want to load. Default None which loads all of the columns
+        
+        Returns:
+        df (pd.DataFrame) : a pandas dataframe loaded from the em27 oof file with applicable columns added/renamed
+        '''
+
+        oof_full_filepath = os.path.join(self.oof_data_folder,filename) #get the full filepath using the class' folder path
+        header = self.read_oof_header_line(oof_full_filepath)
+        if cols_to_load == None: #if use_cols is none, we load all of the columns into the dataframe
+            df = pd.read_csv(oof_full_filepath,
+                            header = header,
+                            delim_whitespace=True,
+                            skip_blank_lines=False) #read it as a csv, parse the header
+        else:
+            must_have_cols = ['flag','year','day','hour','lat(deg)','long(deg)','zobs(km)'] #we basically always need these columns
+            usecols = cols_to_load.copy() #copy the cols to load so it doesn't alter the input list (we often use "specs" or simlar)
+            for mhc in must_have_cols: #loop through the must haves
+                if mhc not in cols_to_load: #if they aren't in the columns to load
+                    usecols.append(mhc) #add them 
+
+            df = pd.read_csv(oof_full_filepath, #now load the dataframe with the specific columns defined
+                header = header,
+                delim_whitespace=True,
+                skip_blank_lines=False,
+                usecols = usecols) #read it as a csv, parse the header
+                
+        df['inst_zasl'] = df['zobs(km)']*1000 #add the instrument z elevation in meters above sea level (instead of km)
+        df['inst_lat'] = df['lat(deg)'] #rename the inst lat column
+        df['inst_lon'] = df['long(deg)'] #rename the inst lon column 
+        if fullformat:
+            df = self.df_dt_formatter(df)
+        if filter_flag_0:
+            df = df.loc[df['flag']==0]
+        return df
 
     def tzdt_from_str(self,dt_str):
         '''Apply the inherent timezone of the class to an input datetime string
@@ -355,28 +399,6 @@ class oof_manager:
         dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S') #create the datetime
         dt = pytz.timezone(self.timezone).localize(dt) #apply the timezone
         return dt
-
-    def df_from_oof(self,filename,fullformat = False,filter_flag_0 = False):
-        '''Load a dataframe from an oof file
-        
-        Args:
-        filename (str) : name of the oof file (not the full path)
-        fullformat (bool) : if you want to do the full format
-        
-        Returns:
-        df (pd.DataFrame) : a pandas dataframe loaded from the em27 oof file with applicable columns added/renamed
-        '''
-
-        oof_full_filepath = os.path.join(self.oof_data_folder,filename) #get the full filepath using the class' folder path
-        df = pd.read_csv(oof_full_filepath,header = self.read_oof_header_line(oof_full_filepath),delim_whitespace=True,skip_blank_lines=False) #read it as a csv, parse the header
-        df['inst_zasl'] = df['zobs(km)']*1000 #add the instrument z elevation in meters above sea level (instead of km)
-        df['inst_lat'] = df['lat(deg)'] #rename the inst lat column
-        df['inst_lon'] = df['long(deg)'] #rename the inst lon column 
-        if fullformat:
-            df = self.df_dt_formatter(df)
-        if filter_flag_0:
-            df = df.loc[df['flag']==0]
-        return df
 
     def read_oof_header_line(self,full_file_path):
         '''Reads and parses the header line of an oof file
@@ -747,7 +769,28 @@ def get_stilt_ncfiles(output_dir):
 def main():
     #output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'
     #get_stilt_ncfiles(output_dir)
-    copy_em27_oofs_to_singlefolder('/uufs/chpc.utah.edu/common/home/lin-group15/agm/em27/ha/results','/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/fall_2023')
+    #copy_em27_oofs_to_singlefolder('/uufs/chpc.utah.edu/common/home/lin-group15/agm/em27/ha/results','/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/fall_2023')
+
+
+    #the full dataset as of now is between the below dates
+    import time
+    import sys
+    t1 = time.time()
+
+    dt1_str = '2023-11-20 00:00:00'
+    dt2_str = '2023-12-01 00:00:00' 
+    timezone = 'US/Mountain'
+    data_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_2023_oof_v2_nasrin_correct'
+    cols_to_load = ['xch4(ppm)','solzen(deg)']
+    dt1 = dtstr_to_dttz(dt1_str,timezone)
+    dt2 = dtstr_to_dttz(dt2_str,timezone)
+    my_oof_manager = oof_manager(data_folder,timezone)
+    df = my_oof_manager.load_oof_df_inrange(dt1,dt2,cols_to_load=cols_to_load)
+
+    t2 = time.time()
+    print(t2-t1)
+    print(df.describe())
+    print(list(df.columns))
 
 if __name__ == "__main__":
    main()
