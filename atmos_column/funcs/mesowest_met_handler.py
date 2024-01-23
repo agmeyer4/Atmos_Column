@@ -177,8 +177,8 @@ def write_to_txt(folder_path,filename,df):
 
 if __name__ == "__main__":
     #This is the main function call. Edit the variable values appropriately. 
-    input_csv_fullpath = '/uufs/chpc.utah.edu/common/home/u0890904/WBB_met/monthly_csvs/WBB.202311.csv'
-    output_folder = '/uufs/chpc.utah.edu/common/home/u0890904/WBB_met/daily_csvs'
+    #input_csv_fullpath = '/uufs/chpc.utah.edu/common/home/u0890904/Downloads/WBB_1.csv'
+    output_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/met/wbb/daily_txt_gggformat'
     header_change = {'Date_Time':'dt',
                     'pressure_set_1':'Pout',
                     'air_temp_set_1':'Tout',
@@ -186,5 +186,13 @@ if __name__ == "__main__":
                     'wind_speed_set_1':'WSPD',
                     'wind_direction_set_1':'WDIR'}
     instrument_tag = 'HA'
+    
+    for fname in os.listdir('/uufs/chpc.utah.edu/common/home/u0890904/Downloads/'):
+        if fname.startswith('WBB'):
+            input_csv_fullpath = os.path.join('/uufs/chpc.utah.edu/common/home/u0890904/Downloads/',fname)
+            split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
+        else:
+            continue
 
-    split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
+    #split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
+
