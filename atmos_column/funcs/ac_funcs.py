@@ -16,6 +16,7 @@ import shutil
 import pytz
 import string
 import re
+from pylr2 import regress2
 import pysolar.solar as solar
 from geographiclib.geodesic import Geodesic
 from herbie import Herbie
@@ -303,6 +304,56 @@ def dtstr_to_dttz(dt_str,timezone):
     dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
     dt = pytz.timezone(timezone).localize(dt)
     return dt
+
+
+def merge_oofdfs(oof_dfs,dropna=False):
+    '''Function to merge oof dfs and add the instrument id as a suffix to each column name. Generally we use
+    this when comparing two oof dfs, such as correcting one to another via an offset. 
+    
+    Args: 
+    oof_dfs (dict): dictionary of oof dataframes, where the key is the instrument id (like 'ha') and the value is the dataframe
+    dropna (bool): True if we want to drop na values (when joining, often there are many), False if not. Default False
+    
+    Returns:
+    merged_df (pd.DataFrame): pandas dataframe of the merged oof dfs, with suffixes for instrument id added to each column
+    '''
+
+    inst_ids = oof_dfs.keys() #get the instrument ids
+    dfs_for_merge = {} #initialize the dataframes for merging
+    for inst_id in inst_ids: #loop through the instrument ids
+        df = oof_dfs[inst_id].copy() #copy the dataframe for that instrument id
+        for col in df.columns: #for each of the columns in the dataframe
+            df = df.rename(columns={col:f'{col}_{inst_id}'}) #add the instrument id as a suffix to the original column name after a _
+        dfs_for_merge[inst_id] = df #add this dataframe to the merge dict
+    merged_df = pd.DataFrame() #initialize the merged dataframe
+    for inst_id in inst_ids: #for all of the dataframes
+        merged_df = pd.concat([merged_df,dfs_for_merge[inst_id]],axis = 1) #merge them into one by concatenating
+    if dropna: #if we want to drop the na values,
+        merged_df = merged_df.dropna() #do it
+    return merged_df
+
+def lin_regress_2(df,x_spec,y_spec):
+    '''Does a type II linear regression and returns the relevant details as a dictionary
+    
+    Args:
+    df (pd.DataFrame) : pandas dataframe containing the data on which we want to do the regression
+    x_spec (str) : name of the column in the df that is the "x" data for the regression
+    y_spec (str) : name of the column in the df that is the "y" data for the regression
+    
+    Returns:
+    reg_details (dict) : a dictionary containing details of the regression, including x and y lines, slope, intercept, and r2
+    '''
+
+    regression = regress2(df[x_spec],df[y_spec]) #run the regression 
+    x_regr_line = np.linspace(df[x_spec].min(),df[x_spec].max(),10) #create the x line from min to max
+    y_regr_line = x_regr_line * regression['slope'] + regression['intercept']  #create the y regression line using the x min to max values
+    reg_details = dict(lm = regression,
+               x_regr_line = x_regr_line,
+               y_regr_line = y_regr_line,
+               slope = regression['slope'],
+               yint = regression['intercept'],
+               r2 = regression['r']**2) #create the details 
+    return reg_details 
 
 def get_stilt_ncfiles(output_dir):
     by_id_fulldir = os.path.join(output_dir,'by-id')
@@ -785,13 +836,15 @@ class met_loader_ggg:
 
     '''
 
-    def __init__(self,daily_met_path):
+    def __init__(self,daily_met_path,column_mapper = None):
         '''
         Args:
         daily_met_path (str) : path to where the daily txt met files are stored
         '''
 
         self.daily_met_path = daily_met_path
+        if column_mapper == None: #Map to new names of columns, can specify if needed or use the default below
+            self.column_mapper = {'Pout':'pres','Tout':'temp','RH':'rh','WSPD':'ws','WDIR':'wd'} #default mapper for ggg formatted data
 
     def load_data_inrange(self,dt1,dt2):
         '''Loads all of the met data within a certin datetime range
@@ -824,6 +877,7 @@ class met_loader_ggg:
 
         df = self.load_single_file(fname) #load the file
         df = self.add_dt_index(df) #add the dt as an index
+        df = self.change_col_names(df) #change the column names
         df = self.wind_handler(df) #handle the wind values (deal with na and add u/v columns)
         return df
 
@@ -854,6 +908,18 @@ class met_loader_ggg:
         df.index = pd.to_datetime(df['UTCDate']+' '+df['UTCTime'],format='%y/%m/%d %H:%M:%S').dt.tz_localize('UTC') #parse the datetime
         return df
     
+    def change_col_names(self,df):
+        '''Changes the column names from a loaded dataframe to those in self.column_mapper 
+        
+        Args:
+        df (pandas.DataFrame) : a dataframe loaded from a ggg style txt met file
+        
+        Returns:
+        df (pandas.DataFrame) : the same dataframe, with the column names changed
+        '''
+
+        return df.rename(columns = self.column_mapper)
+
     def wind_handler(self,df):
         '''This handles the wind columns which are often manipulated to allow for running in EGI.
         
@@ -867,10 +933,10 @@ class met_loader_ggg:
         Returns:
         df (pandas.DataFrame) : the same dataframe with na values put in the right spots, and u and v wind vector columns added
         '''
-        df.loc[df['WSPD'] == 0, 'WDIR'] = np.nan #can't have a wind direction if the wind speed is 0, so set it to nan
+        df.loc[df['ws'] == 0, 'ws'] = np.nan #can't have a wind direction if the wind speed is 0, so set it to nan
         if 'wind_na' in df.columns: #if there isn't a wind_na column, just return the dataframe
-            df.loc[df['wind_na'] == True, 'WSPD'] = np.nan #if the windspeed was na (wind_na is true), set it back to na instead of 0 
-        df[['u','v']] = df.apply(lambda row: wdws_to_uv(row['WSPD'],row['WDIR']),axis = 1,result_type='expand') #add wind columns for u and v to do averaging if needed
+            df.loc[df['wind_na'] == True, 'ws'] = np.nan #if the windspeed was na (wind_na is true), set it back to na instead of 0 
+        df[['u','v']] = df.apply(lambda row: wdws_to_uv(row['ws'],row['wd']),axis = 1,result_type='expand') #add wind columns for u and v to do averaging if needed
         return df
         
     def get_files_inrange(self,dt1,dt2):
@@ -903,7 +969,7 @@ class met_loader_ggg:
         '''
         
         return sorted(os.listdir(self.daily_met_path))
-
+    
 class met_loader_trisonica:
     '''Class to handle loading meteorological data that has been collected by a Trisonica anemometer
     Generally, data are recorded as daily files of the form YYYYMMDD_anem.txt. 
@@ -914,16 +980,17 @@ class met_loader_trisonica:
     
     '''
 
-    def __init__(self,daily_met_path,resample_interval=None):
+    def __init__(self,daily_met_path,resample_interval,column_mapper=None):
         '''
         Args:
         daily_met_path (str) : path to where the daily txt met files are stored
-        resample_interval (DateOffset, Timedelta, str) : default None, no resample. otherwise resamples ('5T' = 5 minutes, 'H' = one hour, etc)
         '''
 
         self.daily_met_path = daily_met_path
         self.resample_interval = resample_interval
         self.headers_list = ['ET','Date','Time','S','D','U','V','W','T','H','DP','P','AD','PI','RO','MD','TD']
+        if column_mapper == None: #Map to new names of columns, can specify if needed or use the default below
+            self.column_mapper = {'U':'u','V':'v','W':'w','T':'temp','P':'pres','H':'rh','WDIR':'wd'} #default mapper for ggg formatted data
 
 
     def load_data_inrange(self,dt1,dt2):
@@ -943,6 +1010,7 @@ class met_loader_trisonica:
             df = self.load_format_single_file(fname) #load and format the individual file
             full_dataframe = pd.concat([full_dataframe,df]) #concatenate it into the big dataframe
         full_dataframe = full_dataframe.loc[(full_dataframe.index>=dt1) & (full_dataframe.index<=dt2)] #snip the dataframe to the range
+        full_dataframe['ws'],full_dataframe['wd'] = np.vectorize(uv_to_wdws)(full_dataframe['u'],full_dataframe['v'])
         return full_dataframe
 
     def load_format_single_file(self,fname):
@@ -983,6 +1051,7 @@ class met_loader_trisonica:
             df = df.drop(['S','D'],axis = 1) #drop speed and direction since we have U and V and don't want to mess up averaging 
         if self.resample_interval is not None:
             df = df.resample(self.resample_interval).mean(numeric_only=True) #resample
+        df = df.rename(columns = self.column_mapper) #rename the columns
         return df
     
     def get_files_inrange(self,dt1,dt2):
@@ -1015,6 +1084,7 @@ class met_loader_trisonica:
         '''
         
         return sorted(os.listdir(self.daily_met_path))
+
         
 
 def main():
