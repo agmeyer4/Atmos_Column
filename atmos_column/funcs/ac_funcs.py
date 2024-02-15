@@ -14,6 +14,8 @@ import datetime
 import itertools
 import shutil
 import pytz
+import string
+import re
 import pysolar.solar as solar
 from geographiclib.geodesic import Geodesic
 from herbie import Herbie
@@ -301,6 +303,14 @@ def dtstr_to_dttz(dt_str,timezone):
     dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
     dt = pytz.timezone(timezone).localize(dt)
     return dt
+
+def get_stilt_ncfiles(output_dir):
+    by_id_fulldir = os.path.join(output_dir,'by-id')
+    id_list = os.listdir(by_id_fulldir)
+    #for id in id_list:
+        # print(id)
+        # try:
+        #     print(f"{id}: {os.path.join(by_id_fulldir,id)/}")
 
 class oof_manager:
     '''Class to manage getting data from oof files'''
@@ -758,13 +768,254 @@ class DEM_handler:
         surface_height = dem_df.loc[idx][self.dem_dataname] #return the value requested
         return surface_height
 
-def get_stilt_ncfiles(output_dir):
-    by_id_fulldir = os.path.join(output_dir,'by-id')
-    id_list = os.listdir(by_id_fulldir)
-    #for id in id_list:
-        # print(id)
-        # try:
-        #     print(f"{id}: {os.path.join(by_id_fulldir,id)/}")
+class met_loader_ggg:
+    '''Class to handle loading meteorological data that has been formatted for use in GGG/EGI.
+    Generally, data should be split into daily files of the form YYYYMMDD_em27id.siteid.txt, where em27id is the two character
+    id like "UA" or "HA", and siteid is the mesowest site id like "WBB". 
+
+    These files should contain the following columns:
+    'UTCDate' : Date in UTC of form yy/mm/dd
+    'UTCTime' : Time in UTC of form HH:MM:SS
+    'Pout' : outside pressure, in hPa
+    'Tout' : outside temperature, in deg C
+    'RH' : relative humidity, in %
+    'WSPD' : wind speed, in m/s
+    'WDIR' : wind direction, in degrees clockwise from north
+    'wind_na' : boolean indicating whether the WSPD was na in the raw data (changed to 0.0 for use in GGG, should be changed back)
+
+    '''
+
+    def __init__(self,daily_met_path):
+        '''
+        Args:
+        daily_met_path (str) : path to where the daily txt met files are stored
+        '''
+
+        self.daily_met_path = daily_met_path
+
+    def load_data_inrange(self,dt1,dt2):
+        '''Loads all of the met data within a certin datetime range
+        
+        Args:
+        dt1 (datetime.datetime) : a timezone aware datetime to start the data period
+        dt2 (datetime.datetime) : a timezone aware datetime to end the data period
+        
+        Returns:
+        full_dataframe (pandas.DataFrame) : a dataframe of all of the met data in the range, with a datetime index wind columns corrected
+        '''
+
+        files_in_range = self.get_files_inrange(dt1,dt2) #get the files that are in the range 
+        full_dataframe = pd.DataFrame() #initialize the full dataframe
+        for fname in files_in_range: #loop through the files in the range
+            df = self.load_format_single_file(fname) #load and format the individual file
+            full_dataframe = pd.concat([full_dataframe,df]) #concatenate it into the big dataframe
+        full_dataframe = full_dataframe.loc[(full_dataframe.index>=dt1) & (full_dataframe.index<=dt2)] #snip the dataframe to the range
+        return full_dataframe
+
+    def load_format_single_file(self,fname):
+        '''Loads and formats a single met file given the filename
+        
+        Args: 
+        fname (str) : name of the file in the self.daily_met_path folder to load
+        
+        Returns:
+        df (pandas.DataFrame) : loaded and formated dataframe including datetime index and wind correction
+        '''
+
+        df = self.load_single_file(fname) #load the file
+        df = self.add_dt_index(df) #add the dt as an index
+        df = self.wind_handler(df) #handle the wind values (deal with na and add u/v columns)
+        return df
+
+    def load_single_file(self,fname):
+        '''Reads in a single file to a dataframe
+        
+        Args: 
+        fname (str) : name of the file in the self.daily_met_path folder to load
+        
+        Returns:
+        df (pandas.DataFrame) : raw loaded dataframe
+        '''
+
+        fullpath = os.path.join(self.daily_met_path,fname) #get the full path
+        df = pd.read_csv(fullpath) #load the file
+        return df
+    
+    def add_dt_index(self,df):
+        '''Adds an index corresponding to the datetime based on the ggg file structure
+        
+        Args:
+        df (pandas.DataFrame) : a dataframe loaded from a ggg style txt met file
+        
+        Returns:
+        df (pandas.DataFrame) : the same dataframe, with a datetime index that is timezone aware (ggg style files should always be UTC)
+        '''
+
+        df.index = pd.to_datetime(df['UTCDate']+' '+df['UTCTime'],format='%y/%m/%d %H:%M:%S').dt.tz_localize('UTC') #parse the datetime
+        return df
+    
+    def wind_handler(self,df):
+        '''This handles the wind columns which are often manipulated to allow for running in EGI.
+        
+        Read more in mesowest_met_handler.py. Basically, we can't have any NaNs or blanks in the wind columns to run EGI, so we replace them 
+        with 0.0. However, this does not mean they are actually 0, so we have added a "wind_na" column indicating if the wind speed values
+        are actually 0 or if they were na. Wind direction values will always be na if windspeed is either 0 or na. 
+        
+        Args:
+        df (pandas.DataFrame) : a dataframe loaded from a ggg style txt met file
+        
+        Returns:
+        df (pandas.DataFrame) : the same dataframe with na values put in the right spots, and u and v wind vector columns added
+        '''
+        df.loc[df['WSPD'] == 0, 'WDIR'] = np.nan #can't have a wind direction if the wind speed is 0, so set it to nan
+        if 'wind_na' in df.columns: #if there isn't a wind_na column, just return the dataframe
+            df.loc[df['wind_na'] == True, 'WSPD'] = np.nan #if the windspeed was na (wind_na is true), set it back to na instead of 0 
+        df[['u','v']] = df.apply(lambda row: wdws_to_uv(row['WSPD'],row['WDIR']),axis = 1,result_type='expand') #add wind columns for u and v to do averaging if needed
+        return df
+        
+    def get_files_inrange(self,dt1,dt2):
+        '''This gets the files that contain data in the range between dt1 and dt2
+        
+        Args:
+        dt1 (datetime.datetime) : a timezone aware datetime to start the data period
+        dt2 (datetime.datetime) : a timezone aware datetime to end the data period
+        
+        Returns:
+        files_in_range (list) : a list of filenames only, in the self.daily_met_path, that fall in the dt range
+        '''
+        daystrings_in_range = [] #initialize the day strings in the range
+        delta_days = dt2.date()-dt1.date() #get the number of days delta between the end and the start
+        for i in range(delta_days.days +1): #loop through that number of days 
+            day = dt1.date() + datetime.timedelta(days=i) #get the day by incrementing by i (how many days past the start)
+            daystrings_in_range.append(day.strftime('%Y%m%d')) #append a string of the date (YYYYmmdd) to match with filenames
+        files_in_range = [] #initilize the filenames that will be in the range
+        for file in self.get_sorted_fnames(): #loop through the sorted oof files in the data folder
+            for daystring_in_range in daystrings_in_range: # loop through the daystrings that are in the range
+                if daystring_in_range in file: #if the daystring is in the filename, 
+                    files_in_range.append(file) #append it. Otherwise keep going
+        return files_in_range
+
+    def get_sorted_fnames(self):
+        '''Sorts the filenames within the daily met path
+        
+        Returns:
+        (list) : a sorted list of all of the elements within the daily_met_path
+        '''
+        
+        return sorted(os.listdir(self.daily_met_path))
+
+class met_loader_trisonica:
+    '''Class to handle loading meteorological data that has been collected by a Trisonica anemometer
+    Generally, data are recorded as daily files of the form YYYYMMDD_anem.txt. 
+
+    The form of these files is a bit weird. There are often blank lines between lines of data, and the data lines look something like this:
+    ET= 1690299686.988468 DT= 2023-07-25 15:41:26.988468 S  02.61 D  073 U -02.48 V -00.77 W -00.30 T  20.56 H  68.93 DP  14.66 P  849.52 \
+        AD  0.9979916 PI -000.1 RO -001.5 MD  011 TD  011
+    
+    '''
+
+    def __init__(self,daily_met_path,resample_interval=None):
+        '''
+        Args:
+        daily_met_path (str) : path to where the daily txt met files are stored
+        resample_interval (DateOffset, Timedelta, str) : default None, no resample. otherwise resamples ('5T' = 5 minutes, 'H' = one hour, etc)
+        '''
+
+        self.daily_met_path = daily_met_path
+        self.resample_interval = resample_interval
+        self.headers_list = ['ET','Date','Time','S','D','U','V','W','T','H','DP','P','AD','PI','RO','MD','TD']
+
+
+    def load_data_inrange(self,dt1,dt2):
+        '''Loads all of the met data within a certin datetime range
+        
+        Args:
+        dt1 (datetime.datetime) : a timezone aware datetime to start the data period
+        dt2 (datetime.datetime) : a timezone aware datetime to end the data period
+        
+        Returns:
+        full_dataframe (pandas.DataFrame) : a dataframe of all of the met data in the range
+        '''
+
+        files_in_range = self.get_files_inrange(dt1,dt2) #get the files that are in the range 
+        full_dataframe = pd.DataFrame() #initialize the full dataframe
+        for fname in files_in_range: #loop through the files in the range
+            df = self.load_format_single_file(fname) #load and format the individual file
+            full_dataframe = pd.concat([full_dataframe,df]) #concatenate it into the big dataframe
+        full_dataframe = full_dataframe.loc[(full_dataframe.index>=dt1) & (full_dataframe.index<=dt2)] #snip the dataframe to the range
+        return full_dataframe
+
+    def load_format_single_file(self,fname):
+        '''Loads and formats a single met file given the filename
+        
+        Args: 
+        fname (str) : name of the file in the self.daily_met_path folder to load
+        
+        Returns:
+        df (pandas.DataFrame) : loaded and formated dataframe including datetime index 
+        '''
+
+        fullpath = os.path.join(self.daily_met_path,fname) #get the full path
+        with open(fullpath,'r',errors='ignore') as f: #we need to do some more sophisticated loading
+            rows_list = [] #initialize a list to store the rows of data
+            for i,line in enumerate(f): #loop through each line in the file
+                newline = line.strip() #strip the newline character
+                if len(newline) < 5: #if there are less than 5 characters, it's a bad line, so skip it
+                    continue
+                newline = newline.replace('=','') #replace equal signs with nothing
+                for let in string.ascii_letters.replace('n','').replace('a',''): #replace any ascci characters with nothing
+                    newline = newline.replace(let,'')
+                newline = newline.replace(',',' ') #replace commas with a space
+                if newline[0] == ' ': #if the line starts with a space, remove it
+                    newline = newline[1:]
+                newline = re.sub(r"\s+",",",newline) #substitute whitespace with a comma
+                line_to_append = newline.split(',') # split the line by comma, should be all the good data
+                if len(line_to_append) == len(self.headers_list): #check to make sure the number of data elements from the split lines matches the headers 
+                    rows_list.append(line_to_append) #if so, append it to the rows list
+            df = pd.DataFrame(rows_list) #create a dataframe from the rows
+            df.columns = self.headers_list #set the columns to be the headers from the headers list
+            for col in df.columns: #make the data numeric for all columns
+                df[col] = pd.to_numeric(df[col],errors='coerce')
+            df = df.dropna(axis = 1,how = 'all') #drop na where all
+            df['DT'] = pd.to_datetime(df['ET'],unit='s') #set the datetime using the epoch time
+            df = df.set_index('DT') #make the datetime the index
+            df.index = df.index.tz_localize('UTC') #add timezone to index, should be UTC
+            df = df.drop(['S','D'],axis = 1) #drop speed and direction since we have U and V and don't want to mess up averaging 
+        if self.resample_interval is not None:
+            df = df.resample(self.resample_interval).mean(numeric_only=True) #resample
+        return df
+    
+    def get_files_inrange(self,dt1,dt2):
+        '''This gets the files that contain data in the range between dt1 and dt2
+        
+        Args:
+        dt1 (datetime.datetime) : a timezone aware datetime to start the data period
+        dt2 (datetime.datetime) : a timezone aware datetime to end the data period
+        
+        Returns:
+        files_in_range (list) : a list of filenames only, in the self.daily_met_path, that fall in the dt range
+        '''
+        daystrings_in_range = [] #initialize the day strings in the range
+        delta_days = dt2.date()-dt1.date() #get the number of days delta between the end and the start
+        for i in range(delta_days.days +1): #loop through that number of days 
+            day = dt1.date() + datetime.timedelta(days=i) #get the day by incrementing by i (how many days past the start)
+            daystrings_in_range.append(day.strftime('%Y%m%d')) #append a string of the date (YYYYmmdd) to match with filenames
+        files_in_range = [] #initilize the filenames that will be in the range
+        for file in self.get_sorted_fnames(): #loop through the sorted oof files in the data folder
+            for daystring_in_range in daystrings_in_range: # loop through the daystrings that are in the range
+                if daystring_in_range in file: #if the daystring is in the filename, 
+                    files_in_range.append(file) #append it. Otherwise keep going
+        return files_in_range
+
+    def get_sorted_fnames(self):
+        '''Sorts the filenames within the daily met path
+        
+        Returns:
+        (list) : a sorted list of all of the elements within the daily_met_path
+        '''
+        
+        return sorted(os.listdir(self.daily_met_path))
+        
 
 def main():
     #output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'
