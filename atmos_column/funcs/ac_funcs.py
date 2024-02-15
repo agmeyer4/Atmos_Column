@@ -840,6 +840,7 @@ class met_loader_ggg:
         '''
         Args:
         daily_met_path (str) : path to where the daily txt met files are stored
+        column_mapper (dict) : a dictionary to change names of the columns, default None which gives the default mapper below
         '''
 
         self.daily_met_path = daily_met_path
