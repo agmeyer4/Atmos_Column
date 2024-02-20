@@ -11,7 +11,7 @@
         "base_project_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/",
         "column_data_folder" : "//uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_2023_oof_v2_nasrin_correct",
         "output_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output",
-        "stilt_folder" : "/uufs/chpc.utah.edu/common/home/lin-group15/agm/STILT_runs",
+        "stilt_folder" : "/uufs/chpc.utah.edu/common/home/lin-group15/agm/STILT_runs/test",
         "dem_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/DEM"
     },
     "z_ail_list" : [0,250,500,750,1000,1250,1500,1750,2000,2250,2500],

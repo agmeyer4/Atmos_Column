@@ -12,7 +12,7 @@ Description: This module allows the user to do a "full run" of atmospheric colum
 5. The STILT model is structured and checked. This includes initializing the STILT project in the correct place if needed,
    rewriting the run_stilt.r script to match the created receptor files, and using any extra configs in the configuration file are 
    included in run_stilt. 
-6. TODO run stilt
+6. Run stilt
 7. TODO apply the averaging kernel and pressure weighting functions
 8. TODO final analysis and storage 
 '''
