@@ -40,6 +40,8 @@ class SlurmHandler:
     def create_submitfile_from_configs(self):
         header = self.create_slurm_header()
         self.write_as_new_file(header)
+        self.append_to_file('SECONDS=0')
+
 
     def create_slurm_header(self):
         header_lines = []
@@ -48,10 +50,16 @@ class SlurmHandler:
             header_lines.append(f"#SBATCH --{key}={value}")
         log_path = os.path.join(self.configs.folder_paths['slurm_folder'],'logs',"%A.out")
         header_lines.append(f"#SBATCH -o {log_path}")
-        header_lines.append('\n')
+        header_lines.append('')
         header = '\n'.join(header_lines)
         return header
-    
+
+    def add_echo_line(self,text_to_echo):
+        self.append_to_file(f'echo "{text_to_echo}"')
+
+    def echo_elapsed_seconds(self):
+        self.add_echo_line("Time since last = $SECONDS seconds")
+
     def append_to_file(self,text):
         with open(self.full_filepath,'a') as f:
             f.write(text+'\n')
@@ -59,26 +67,43 @@ class SlurmHandler:
     def write_as_new_file(self,text):
         with open(self.full_filepath,'w') as f:
             f.write(text+'\n')
+
+def stilt_name_creator(dt):
+    return f"{dt.year:04}{dt.month:02}{dt.day:02}_stilt"
+
+
 def main():
-    config_json_fname = 'input_config_test1.json'
+    config_json_fname = 'input_config_fulltest.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
     structure_check.directory_checker(configs,run=True) #check the structure
 
-    slurm = SlurmHandler(configs)
-    slurm.create_submitfile_from_configs()
+    slurm = SlurmHandler(configs) #create a slurm handler from the configs
+    slurm.create_submitfile_from_configs() #create a slurm submit.sh file 
 
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
-        stilt_name = f"{dt_range['dt1'].year:04}{dt_range['dt1'].month:02}{dt_range['dt1'].day:02}_stilt"
+        stilt_name = stilt_name_creator(dt_range['dt1'])
         rec_creator_inst = cr.receptor_creator(configs,dt_range['dt1'],dt_range['dt2']) #Create the receptor creator class
         rec_creator_inst.create_receptors() #create the receptors
         stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2'],stilt_name = stilt_name) #create the stilt setup class
         stilt_setup_inst.full_setup() #do a full stilt setup
 
-        #print(f'Running ac_run_stilt.r for {dt_range}')
-        slurm_line = f"Rscript {os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')}"
-        slurm.append_to_file(slurm_line)
-        #subprocess.call(['Rscript', os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')]) #run stilt
+        slurm_line = f"Rscript {os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')}" #create the correct R call to the slurm script
+        slurm.add_echo_line(slurm_line)
+        slurm.append_to_file(slurm_line) #add it to the slurm script
+        slurm.echo_elapsed_seconds()
+        slurm.append_to_file('SECONDS=0')
+    
+    userin = '' #initialize a userinput
+    while (userin != 'y') & (userin != 'n'): #want it to be "y" or "n"
+        print('Do you want to submit the slurm job?')
+        userin = input('enter y or n: ') #ask if they want to submit
+
+    if userin == 'y': #if they do
+        print(f"Submitting {os.path.join(configs.folder_paths['slurm_folder'],'jobs','submit.sh')} with sbatch") # print the call
+        subprocess.call(['sbatch', os.path.join(configs.folder_paths['slurm_folder'],'jobs','submit.sh')]) #do the call
+    else:
+        print('Setup complete, Slurm not submitted')
 
 if __name__=='__main__':
     main()
