@@ -25,10 +25,44 @@ from config import run_config, structure_check
 import subprocess
 import sys
 
+class SlurmHandler:
+    def __init__(self,configs):
+        '''
+        Args:
+        configs (obj of type run_config_obj) : configurations from a config json file to use 
+        '''
+        self.configs = configs
+    
+    def create_submitfile_from_configs(self):
+        self.full_filepath = os.path.join(self.configs.folder_paths['slurm_folder'],'jobs','submit.sh')
+        self.write_header(self.full_filepath)
+
+    def write_header(self,full_filepath):
+        header = self.create_slurm_header()
+        self.append_to_file(full_filepath,header)
+
+    def create_slurm_header(self):
+        header_lines = []
+        header_lines.append('#!/bin/bash')
+        header_lines.append(f"#SBATCH --nodes={self.configs.slurm['nodes']}")
+        header_lines.append(f"#SBATCH --account={self.configs.slurm['account']}")
+        header_lines.append(f"#SBATCH --partition={self.configs.slurm['partition']}")
+        log_path = os.path.join(self.configs.folder_paths['slurm_folder'],'logs',"%A.out")
+        header_lines.append(f"#SBATCH -o {log_path}")
+        header = '\n'.join(header_lines)
+        return header
+    
+    def append_to_file(self,full_filepath,text):
+        with open(full_filepath,'a') as f:
+            f.write(text+'\n')
+
 def main():
-    config_json_fname = 'input_config_test.json'
+    config_json_fname = 'input_config_test1.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
     structure_check.directory_checker(configs,run=True) #check the structure
+
+    slurm = SlurmHandler(configs)
+    slurm.create_submitfile_from_configs()
 
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
@@ -38,8 +72,10 @@ def main():
         stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2'],stilt_name = stilt_name) #create the stilt setup class
         stilt_setup_inst.full_setup() #do a full stilt setup
 
-        print(f'Running ac_run_stilt.r for {dt_range}')
-        subprocess.call(['Rscript', os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')]) #run stilt
+        #print(f'Running ac_run_stilt.r for {dt_range}')
+        slurm_line = f"Rscript {os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')}"
+        slurm.append_to_file(slurm.full_filepath,slurm_line)
+        #subprocess.call(['Rscript', os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')]) #run stilt
 
 if __name__=='__main__':
     main()

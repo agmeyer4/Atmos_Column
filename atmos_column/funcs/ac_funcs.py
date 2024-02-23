@@ -370,7 +370,7 @@ class oof_manager:
         '''
 
         oof_full_filepath = os.path.join(self.oof_data_folder,filename) #get the full filepath using the class' folder path
-        df = pd.read_csv(oof_full_filepath,header = self.read_oof_header_line(oof_full_filepath),delim_whitespace=True,skip_blank_lines=False) #read it as a csv, parse the header
+        df = pd.read_csv(oof_full_filepath,header = self.read_oof_header_line(oof_full_filepath),sep='\s+',skip_blank_lines=False) #read it as a csv, parse the header
         df['inst_zasl'] = df['zobs(km)']*1000 #add the instrument z elevation in meters above sea level (instead of km)
         df['inst_lat'] = df['lat(deg)'] #rename the inst lat column
         df['inst_lon'] = df['long(deg)'] #rename the inst lon column 
@@ -606,7 +606,7 @@ class ground_slant_handler:
         multi_df['receptor_zasl'] = receptor_zasls
         return multi_df
 
-    def run_slant_at_intervals(self,dt1,dt2,my_dem_handler,interval='1H'):
+    def run_slant_at_intervals(self,dt1,dt2,my_dem_handler,interval='1h'):
         '''Gets a slant dataframe given a datetime range and interval
         
         Args:

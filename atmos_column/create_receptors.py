@@ -80,7 +80,7 @@ class receptor_creator:
         my_dem_handler = ac.DEM_handler(self.configs.folder_paths['dem_folder'],
                                 self.configs.dem_fname,
                                 self.configs.dem_typeid)
-        slant_df = gsh.run_slant_at_intervals(dt1_oof,dt2_oof,my_dem_handler) #Get the slant column between the oof datetimes
+        slant_df = gsh.run_slant_at_intervals(dt1_oof,dt2_oof,my_dem_handler,interval=self.configs.interval) #Get the slant column between the oof datetimes
         receptor_df = ac.slant_df_to_rec_df(slant_df) #transform it to a receptor dataframe style
         receptor_path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #get the path, including the column type, where receptor csv will be stored
         fname = self.get_rec_fname() #get the filename of the receptor

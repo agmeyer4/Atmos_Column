@@ -133,7 +133,7 @@ class stilt_setup:
         #load the run_stilt_configs from the config file. Within configs.run_stilt_configs, the user can put in any of the same parameters
         #that show up in run_stilt.r, and these parameters will be written into the new run_stilt.r file. 
         run_stilt_configs = self.configs.run_stilt_configs #load the configs
-        run_stilt_configs['n_cores'] = self.configs.cores #make sure n_cores is in the run stilt configs based on teh cores parameter in configs
+        run_stilt_configs['n_cores'] = self.configs.slurm['cores'] #make sure n_cores is in the run stilt configs based on teh cores parameter in configs
 
         #Open and read the lines of the original run_stilt.r and the receptor loader. Pieces of these will be written to the new file
         with open(original_run_stilt_filepath,'r') as original_run_stilt_file:

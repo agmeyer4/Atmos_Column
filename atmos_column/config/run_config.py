@@ -32,16 +32,16 @@ class run_config_obj:
         self.get_lat_lon_zasl() #get the lat/lon/zasl -- will be just the config if column type is not em27, if it is it will be taken from oof
         self.split_dt_ranges = self.get_split_dt_ranges() #split the datetimes into daily ranges
         self.run_stilt_configs['n_hours'] = self.backtraj_hours #add the n_hours parameter to the run stilt cnofigs parameter dict
-        self.get_cores() #get the number of cores to use
+    #     self.get_cores() #get the number of cores to use
 
-    def get_cores(self):
-        '''Gets the number of cores to use from the config file'''
+    # def get_cores(self):
+    #     '''Gets the number of cores to use from the config file'''
 
-        avail_cores = multiprocessing.cpu_count() #find out how many cores are available
-        if self.cores == 'max': #if the cores parameter is set to "max"
-            self.cores = avail_cores #reset it to the number of cores available
-        if self.cores > avail_cores: #cant use more cores than we have!
-            raise ValueError('Error in input config: more cores than are available')
+    #     avail_cores = multiprocessing.cpu_count() #find out how many cores are available
+    #     if self.cores == 'max': #if the cores parameter is set to "max"
+    #         self.cores = avail_cores #reset it to the number of cores available
+    #     if self.cores > avail_cores: #cant use more cores than we have!
+    #         raise ValueError('Error in input config: more cores than are available')
 
     def load_json(self):
         '''Loads the json from the json filepath'''

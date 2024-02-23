@@ -12,7 +12,8 @@
         "column_data_folder" : "//uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_2023_oof_v2_nasrin_correct",
         "output_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output",
         "stilt_folder" : "/uufs/chpc.utah.edu/common/home/lin-group15/agm/STILT_runs/test",
-        "dem_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/DEM"
+        "dem_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/DEM",
+        "slurm_folder" : "/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/slurm"
     },
     "z_ail_list" : [0,250,500,750,1000,1250,1500,1750,2000,2250,2500],
     "backtraj_hours" : -24,
@@ -21,7 +22,13 @@
     "met_product":"nat",
     "dem_fname" : "ASTGTM_NC.003_30m_aid0001_slcbig.nc",
     "dem_typeid" : "aster",
-    "cores":16,
+    "slurm" : {
+        "nodes" : 1,
+        "cores" : 16,
+        "account" : "carbon-kp",
+        "partition" : "carbon-kp",
+        "time" : "300:00:00"
+    },
     "run_stilt_configs":{
         "met_path" : "'/uufs/chpc.utah.edu/common/home/lin-group12/hrrr/hrrr'",
         "met_file_format" : "'%Y%m%d_%H'",
