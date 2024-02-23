@@ -26,36 +26,39 @@ import subprocess
 import sys
 
 class SlurmHandler:
-    def __init__(self,configs):
+    def __init__(self,configs,custom_submit_name = None):
         '''
         Args:
         configs (obj of type run_config_obj) : configurations from a config json file to use 
+        custom_submit_name (str) : if you would like a custom job submission name, define it here. Will default None to 'submit.sh'
         '''
         self.configs = configs
+        if custom_submit_name is None:
+            custom_submit_name = 'submit.sh'
+        self.full_filepath = os.path.join(self.configs.folder_paths['slurm_folder'],'jobs',custom_submit_name)
     
     def create_submitfile_from_configs(self):
-        self.full_filepath = os.path.join(self.configs.folder_paths['slurm_folder'],'jobs','submit.sh')
-        self.write_header(self.full_filepath)
-
-    def write_header(self,full_filepath):
         header = self.create_slurm_header()
-        self.append_to_file(full_filepath,header)
+        self.write_as_new_file(header)
 
     def create_slurm_header(self):
         header_lines = []
         header_lines.append('#!/bin/bash')
-        header_lines.append(f"#SBATCH --nodes={self.configs.slurm['nodes']}")
-        header_lines.append(f"#SBATCH --account={self.configs.slurm['account']}")
-        header_lines.append(f"#SBATCH --partition={self.configs.slurm['partition']}")
+        for key,value in self.configs.slurm_options.items():
+            header_lines.append(f"#SBATCH --{key}={value}")
         log_path = os.path.join(self.configs.folder_paths['slurm_folder'],'logs',"%A.out")
         header_lines.append(f"#SBATCH -o {log_path}")
+        header_lines.append('\n')
         header = '\n'.join(header_lines)
         return header
     
-    def append_to_file(self,full_filepath,text):
-        with open(full_filepath,'a') as f:
+    def append_to_file(self,text):
+        with open(self.full_filepath,'a') as f:
             f.write(text+'\n')
 
+    def write_as_new_file(self,text):
+        with open(self.full_filepath,'w') as f:
+            f.write(text+'\n')
 def main():
     config_json_fname = 'input_config_test1.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
@@ -74,7 +77,7 @@ def main():
 
         #print(f'Running ac_run_stilt.r for {dt_range}')
         slurm_line = f"Rscript {os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')}"
-        slurm.append_to_file(slurm.full_filepath,slurm_line)
+        slurm.append_to_file(slurm_line)
         #subprocess.call(['Rscript', os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')]) #run stilt
 
 if __name__=='__main__':

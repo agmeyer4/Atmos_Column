@@ -22,12 +22,12 @@
     "met_product":"nat",
     "dem_fname" : "ASTGTM_NC.003_30m_aid0001_slcbig.nc",
     "dem_typeid" : "aster",
-    "slurm" : {
+    "slurm_options" : {
         "nodes" : 1,
-        "cores" : 16,
-        "account" : "carbon-kp",
+        "ntasks" : 16,
         "partition" : "carbon-kp",
-        "time" : "300:00:00"
+        "account" : "carbon-kp",
+        "time" : "10:00:00"
     },
     "run_stilt_configs":{
         "met_path" : "'/uufs/chpc.utah.edu/common/home/lin-group12/hrrr/hrrr'",
