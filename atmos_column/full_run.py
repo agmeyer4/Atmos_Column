@@ -16,6 +16,7 @@ Description: This module allows the user to do a "full run" of atmospheric colum
 7. Add the Rscript line for running stilt to the slurm submit script
 8. Ask if user wants to actually submit the slurm script.
 9. Submit if so, exit if not
+TODO dont define DEM every loop -- make as input to create receptors and only define once. 
 TODO apply the averaging kernel and pressure weighting functions
 TODO final analysis and storage 
 '''
