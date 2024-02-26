@@ -17,7 +17,7 @@ files in output/receptors. See main() for detailed code description.
 import os
 from funcs import ac_funcs as ac
 from config import run_config, structure_check
-import datetime
+import datetime 
 
 class receptor_creator:
     '''
