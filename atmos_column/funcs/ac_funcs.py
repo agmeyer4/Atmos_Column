@@ -13,6 +13,7 @@ import os
 import datetime
 import itertools
 import shutil
+import subprocess
 import pytz
 import pysolar.solar as solar
 from geographiclib.geodesic import Geodesic
@@ -305,6 +306,14 @@ def dtstr_to_dttz(dt_str,timezone):
     dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
     dt = pytz.timezone(timezone).localize(dt)
     return dt
+
+def get_stilt_ncfiles(output_dir):
+    by_id_fulldir = os.path.join(output_dir,'by-id')
+    id_list = os.listdir(by_id_fulldir)
+    #for id in id_list:
+        # print(id)
+        # try:
+        #     print(f"{id}: {os.path.join(by_id_fulldir,id)/}")
 
 class oof_manager:
     '''Class to manage getting data from oof files'''
@@ -738,13 +747,98 @@ class DEM_handler:
         surface_height = dem_df.loc[idx][self.dem_dataname] #return the value requested
         return surface_height
 
-def get_stilt_ncfiles(output_dir):
-    by_id_fulldir = os.path.join(output_dir,'by-id')
-    id_list = os.listdir(by_id_fulldir)
-    #for id in id_list:
-        # print(id)
-        # try:
-        #     print(f"{id}: {os.path.join(by_id_fulldir,id)/}")
+class SlurmHandler:
+    '''This class is for creating, adding to, and submitting a slurm script that can be submitted with sbatch'''
+
+    def __init__(self,configs,custom_submit_name = None):
+        '''
+        Args:
+        configs (obj of type run_config_obj) : configurations from a config json file to use 
+        custom_submit_name (str) : if you would like a custom job submission name, define it here. Will default None to 'submit.sh'
+        '''
+        self.configs = configs #grabs everything from the configs
+        if custom_submit_name is None: #default setting
+            custom_submit_name = 'submit.sh'
+        self.full_filepath = os.path.join(self.configs.folder_paths['slurm_folder'],'jobs',custom_submit_name) #define the full filepath of the submit fle
+    
+    def stilt_setup(self):
+        '''Function to setup the initial lines for a set of STILT runs'''
+
+        header = self.create_slurm_header() #create the header using the configs
+        self.write_as_new_file(header) #write the header to a new file -- this will overwrite the current self.full_filepath
+        self.append_to_file('SECONDS=0') #add a line initializeing "seconds" so we can display time it took to run in the output
+    
+    def add_stilt_run(self,stilt_name,run_stilt_fname='ac_run_stilt.r'):
+        '''Adds the lines necessary to call STILT in the submit script located at self.full_filepath
+        
+        Args:
+        stilt_name (str) : name of the stilt project (within configs.folder_paths['stilt_folder']) to be run
+        run_stilt_fname (str) : name of the run_stilt file in stilt_name/r/, defaults to "ac_run_stilt.r" which is the default for stilt_setup.py
+        '''
+
+        slurm_line = f"Rscript {os.path.join(self.configs.folder_paths['stilt_folder'],stilt_name,'r',run_stilt_fname)}" #create the correct R call to the slurm script
+        self.add_echo_line(slurm_line) # add a line that will echo the Rscript call to the output
+        self.append_to_file(slurm_line) #actually append the Rscript line to be run
+        self.echo_elapsed_seconds() #echo to the output how many seconds have passed since last call
+        self.append_to_file('SECONDS=0') #reset seconds for the next elapsed time
+
+    def submit_sbatch(self):
+        '''Submits the sbatch script at self.full_filepath'''
+
+        subprocess.call(['sbatch', self.full_filepath]) #do the call
+
+    def create_slurm_header(self,shebang = '!#/bin/bash'):
+        '''Creates the header for a submit file that can be read and submitted using sbatch
+        
+        Args:
+        shebang (str) : the shebang to go at the beginning of the submit file, defaults to bash '!#/bin/bash'
+
+        Returns:
+        header (str) : a string, joined by newlines, that is the header for the submit file
+        '''
+
+        header_lines = [] #initialize a list of lines
+        header_lines.append(shebang) #the first line should be the shebang
+        for key,value in self.configs.slurm_options.items(): #loop through all of the "slurm_options" in the configs
+            header_lines.append(f"#SBATCH --{key}={value}") #append the slurm options with the sbatch prefix needed for slurm
+        log_path = os.path.join(self.configs.folder_paths['slurm_folder'],'logs',"%A.out") #define path of the log file TODO make it something better than just the job number %A...
+        header_lines.append(f"#SBATCH -o {log_path}") #append the log  path
+        header_lines.append('')  #append a blank for an extra line
+        header = '\n'.join(header_lines) #join with newlines to create the header
+        return header
+
+    def add_echo_line(self,text_to_echo):
+        '''Adds a line of text that we want to echo from the submit file to the stdout
+        
+        Args:
+        text_to_echo (str) : what should be echoed'''
+
+        self.append_to_file(f'echo "{text_to_echo}"') #append the echo line
+
+    def echo_elapsed_seconds(self):
+        '''Echo the amount of time sense the last $SECONDS=0 call to the stdout'''
+
+        self.add_echo_line("Time since last = $SECONDS seconds")
+
+    def append_to_file(self,text):
+        '''Append a line of text to the submit file
+        
+        Args:
+        text (str) : the text to append to the file
+        '''
+
+        with open(self.full_filepath,'a') as f: #open with append mode
+            f.write(text+'\n') #add the text and a newline
+
+    def write_as_new_file(self,text): 
+        '''Overwrite the existing full_filepath and create a new file with text as an input
+        
+        Args:
+        text (str) : the text to go at the top of the new file
+        '''
+
+        with open(self.full_filepath,'w') as f: #open under write mode
+            f.write(text+'\n') #write the text and a new line
 
 def main():
     output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'

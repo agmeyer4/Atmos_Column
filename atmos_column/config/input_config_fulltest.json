@@ -24,8 +24,8 @@
     "slurm_options" : {
         "nodes" : 1,
         "ntasks" : 16,
-        "partition" : "carbon-kp",
-        "account" : "carbon-kp",
+        "partition" : "lin-kp",
+        "account" : "lin-kp",
         "time" : "10:00:00"
     },
     "run_stilt_configs":{

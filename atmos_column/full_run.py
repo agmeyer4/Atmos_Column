@@ -5,16 +5,19 @@ Description: This module allows the user to do a "full run" of atmospheric colum
 
 1. Read the specified configuration file in atmos_column/config. This provides the parameters for the run. 
 2. Check the project structure to ensure that the directories are set up as they should be. 
-3. Iterate through each day in the datetime range of the config file. For each day, steps 4-X will be carried out. 
-4. Create the receptors for the run. These are often slant columns for ground based instruments, filtered based on if 
+3. Setup the slurm submit script for running stilt, write its header
+4. Iterate through each day in the datetime range of the config file. For each day, steps 4-X will be carried out. 
+5. Create the receptors for the run. These are often slant columns for ground based instruments, filtered based on if 
    there is em27 data, or simply an hourly interval for ground data. Created receptors are stored in atmos_column/output/receptors.
    Aircraft data is TODO. 
-5. The STILT model is structured and checked. This includes initializing the STILT project in the correct place if needed,
+6. The STILT model is structured and checked. This includes initializing the STILT project in the correct place if needed,
    rewriting the run_stilt.r script to match the created receptor files, and using any extra configs in the configuration file are 
    included in run_stilt. 
-6. Run stilt
-7. TODO apply the averaging kernel and pressure weighting functions
-8. TODO final analysis and storage 
+7. Add the Rscript line for running stilt to the slurm submit script
+8. Ask if user wants to actually submit the slurm script.
+9. Submit if so, exit if not
+TODO apply the averaging kernel and pressure weighting functions
+TODO final analysis and storage 
 '''
 
 #Import necessary packages
@@ -26,56 +29,15 @@ import funcs.ac_funcs as ac
 import subprocess
 import sys
 
-class SlurmHandler:
-    def __init__(self,configs,custom_submit_name = None):
-        '''
-        Args:
-        configs (obj of type run_config_obj) : configurations from a config json file to use 
-        custom_submit_name (str) : if you would like a custom job submission name, define it here. Will default None to 'submit.sh'
-        '''
-        self.configs = configs
-        if custom_submit_name is None:
-            custom_submit_name = 'submit.sh'
-        self.full_filepath = os.path.join(self.configs.folder_paths['slurm_folder'],'jobs',custom_submit_name)
-    
-    def create_submitfile_from_configs(self):
-        header = self.create_slurm_header()
-        self.write_as_new_file(header)
-        self.append_to_file('SECONDS=0')
 
-
-    def create_slurm_header(self):
-        header_lines = []
-        header_lines.append('#!/bin/bash')
-        for key,value in self.configs.slurm_options.items():
-            header_lines.append(f"#SBATCH --{key}={value}")
-        log_path = os.path.join(self.configs.folder_paths['slurm_folder'],'logs',"%A.out")
-        header_lines.append(f"#SBATCH -o {log_path}")
-        header_lines.append('')
-        header = '\n'.join(header_lines)
-        return header
-
-    def add_echo_line(self,text_to_echo):
-        self.append_to_file(f'echo "{text_to_echo}"')
-
-    def echo_elapsed_seconds(self):
-        self.add_echo_line("Time since last = $SECONDS seconds")
-
-    def append_to_file(self,text):
-        with open(self.full_filepath,'a') as f:
-            f.write(text+'\n')
-
-    def write_as_new_file(self,text):
-        with open(self.full_filepath,'w') as f:
-            f.write(text+'\n')
 
 def main():
     config_json_fname = 'input_config_fulltest.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
     structure_check.directory_checker(configs,run=True) #check the structure
 
-    slurm = SlurmHandler(configs) #create a slurm handler from the configs
-    slurm.create_submitfile_from_configs() #create a slurm submit.sh file 
+    slurm = ac.SlurmHandler(configs) #create a slurm handler from the configs
+    slurm.stilt_setup() #create a slurm submit.sh file 
 
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
@@ -84,22 +46,19 @@ def main():
         stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2']) #create the stilt setup class
         stilt_setup_inst.full_setup() #do a full stilt setup
 
-        slurm_line = f"Rscript {os.path.join(configs.folder_paths['stilt_folder'],stilt_setup_inst.stilt_name,'r','ac_run_stilt.r')}" #create the correct R call to the slurm script
-        slurm.add_echo_line(slurm_line)
-        slurm.append_to_file(slurm_line) #add it to the slurm script
-        slurm.echo_elapsed_seconds()
-        slurm.append_to_file('SECONDS=0')
+        slurm.add_stilt_run(stilt_setup_inst.stilt_name) #add this day's run to the slurm file
     
+    #Ask if user wants to actually run the slurm file -- not automatic behavior. 
     userin = '' #initialize a userinput
     while (userin != 'y') & (userin != 'n'): #want it to be "y" or "n"
         print('Do you want to submit the slurm job?')
         userin = input('enter y or n: ') #ask if they want to submit
 
     if userin == 'y': #if they do
-        print(f"Submitting {os.path.join(configs.folder_paths['slurm_folder'],'jobs','submit.sh')} with sbatch") # print the call
-        subprocess.call(['sbatch', os.path.join(configs.folder_paths['slurm_folder'],'jobs','submit.sh')]) #do the call
+        print(f"Submitting {slurm.full_filepath} with sbatch") # print the call
+        slurm.submit_sbatch()
     else:
-        print('Setup complete, Slurm not submitted')
+        print('Setup complete, *****Slurm not submitted*****')
 
 if __name__=='__main__':
     main()
