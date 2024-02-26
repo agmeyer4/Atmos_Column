@@ -131,5 +131,6 @@ dmypy.json
 .DS_Store
 output/*
 atmos_column/temp/*
-slurm/*
+slurm/jobs
+slurm/logs
 !*.gitkeep
