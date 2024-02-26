@@ -18,19 +18,20 @@ import sys
 class stilt_setup:
     '''This class sets up a STILT run based on the configs and datetime inputs'''
 
-    def __init__(self,configs,dt1,dt2,stilt_name='stilt'):
+    def __init__(self,configs,dt1,dt2,stilt_name=None):
         '''
         Args:
         configs (obj of type run_config_obj) : configurations from a config json file to use 
         dt1 (datetime.datetime) : start datetime
         dt2 (datetime.datetime) : end datetime
-        stilt_name (str) : name of the STILT project to go inside the configs.folder_paths['stilt_folder']. Default='stilt'
+        stilt_name (str) : name of the STILT project to go inside the configs.folder_paths['stilt_folder']. Default='YYYYMMDD' of dt1
         '''
 
         self.configs = configs
         self.dt1 = dt1
         self.dt2 = dt2
-        self.stilt_name = stilt_name
+        if stilt_name is None: #default case -- make it dt1
+            self.stilt_name = dt1.strftime('%Y%m%d')
 
     def full_setup(self):
         '''This does the full setup for a STILT project by creating it if necessary, finding receptors, and rewriting/moving run_stilt.r
@@ -40,7 +41,7 @@ class stilt_setup:
         #There is a weird bug where sometimes the stilt initialization script doesn't work -- this is a hack to catch that and try again
         successful_setup=False
         while successful_setup == False:
-            response = stilt_init(self.configs,stilt_name=self.stilt_name) #initialize the stilt project if necessary, grab the response
+            response = self.stilt_init() #initialize the stilt project if necessary, grab the response
             if int(response)==0: #0 is a successful setup, so exit this
                 successful_setup = True
             else: #if it wasn't successful, keep trying. this could maybe cause an infinite loop if some other aspect of the setup is going awry consistently
@@ -214,24 +215,24 @@ class stilt_setup:
         #os.rename(os.path.join(new_run_stilt_path,new_run_stilt_fname),os.path.join(official_run_stilt_path,new_run_stilt_fname)) #move the file
         shutil.move(os.path.join(new_run_stilt_path,new_run_stilt_fname),os.path.join(official_run_stilt_path,new_run_stilt_fname))
 
-def stilt_init(configs,stilt_name='stilt'):
-    '''Method to initialize the STILT project if it isn't already
-    
-    Args: 
-    configs (obj of type run_stilt_obj) : contains the path information we will need
-    stilt_name (str) : name of the stilt project within the stilt folder defined in configs
-    '''
+    def stilt_init(self):
+        '''Method to initialize the STILT project if it isn't already
+        
+        Args: 
+        configs (obj of type run_stilt_obj) : contains the path information we will need
+        stilt_name (str) : name of the stilt project within the stilt folder defined in configs
+        '''
 
-    if os.path.isdir(os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r')): #a good bet if there is a folder named "r" in the stilt directory
-        print(f"STILT looks to be set up at {configs.folder_paths['stilt_folder']}/{stilt_name}") 
-        return
-    
-    #If there isn't, we want to create it 
-    print(f"STILT not found in {configs.folder_paths['stilt_folder']}/{stilt_name} -- Creating project")
-    os.chdir(configs.folder_paths['stilt_folder']) #change into the stilt folder
-    uataq_command = f"uataq::stilt_init('{stilt_name}')" #write the uataq command to be joined with the subprocess call
-    response = subprocess.call(['Rscript','-e', uataq_command]) #this is the official stilt init command
-    return response
+        if os.path.isdir(os.path.join(self.configs.folder_paths['stilt_folder'],self.stilt_name,'r')): #a good bet if there is a folder named "r" in the stilt directory
+            print(f"STILT looks to be set up at {self.configs.folder_paths['stilt_folder']}/{self.stilt_name}") 
+            return
+        
+        #If there isn't, we want to create it 
+        print(f"STILT not found in {self.configs.folder_paths['stilt_folder']}/{self.stilt_name} -- Creating project")
+        os.chdir(self.configs.folder_paths['stilt_folder']) #change into the stilt folder
+        uataq_command = f"uataq::stilt_init('{self.stilt_name}')" #write the uataq command to be joined with the subprocess call
+        response = subprocess.call(['Rscript','-e', uataq_command]) #this is the official stilt init command
+        return response
 
 class met_handler:
     '''A class to handle getting the met data for running STILT 
@@ -266,11 +267,11 @@ class met_handler:
 
 def main():
     '''This main function will setup the stilt project using the configuration file'''
-    config_json_fname = 'input_config_test.json'
+    config_json_fname = 'input_config_sstest.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname)
     structure_check.directory_checker(configs,run=True)
 
-    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt,stilt_name = 'test')
+    stilt_setup_inst = stilt_setup(configs,configs.start_dt,configs.end_dt)#,stilt_name = 'sstest')
     stilt_setup_inst.full_setup()
 
 if __name__=='__main__':

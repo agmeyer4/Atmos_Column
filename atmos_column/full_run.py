@@ -22,6 +22,7 @@ import os
 import create_receptors as cr
 import stilt_setup as ss
 from config import run_config, structure_check
+import funcs.ac_funcs as ac
 import subprocess
 import sys
 
@@ -68,10 +69,6 @@ class SlurmHandler:
         with open(self.full_filepath,'w') as f:
             f.write(text+'\n')
 
-def stilt_name_creator(dt):
-    return f"{dt.year:04}{dt.month:02}{dt.day:02}_stilt"
-
-
 def main():
     config_json_fname = 'input_config_fulltest.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
@@ -82,13 +79,12 @@ def main():
 
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
-        stilt_name = stilt_name_creator(dt_range['dt1'])
         rec_creator_inst = cr.receptor_creator(configs,dt_range['dt1'],dt_range['dt2']) #Create the receptor creator class
         rec_creator_inst.create_receptors() #create the receptors
-        stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2'],stilt_name = stilt_name) #create the stilt setup class
+        stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2']) #create the stilt setup class
         stilt_setup_inst.full_setup() #do a full stilt setup
 
-        slurm_line = f"Rscript {os.path.join(configs.folder_paths['stilt_folder'],stilt_name,'r','ac_run_stilt.r')}" #create the correct R call to the slurm script
+        slurm_line = f"Rscript {os.path.join(configs.folder_paths['stilt_folder'],stilt_setup_inst.stilt_name,'r','ac_run_stilt.r')}" #create the correct R call to the slurm script
         slurm.add_echo_line(slurm_line)
         slurm.append_to_file(slurm_line) #add it to the slurm script
         slurm.echo_elapsed_seconds()
