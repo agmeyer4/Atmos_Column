@@ -22,15 +22,10 @@ TODO final analysis and storage
 '''
 
 #Import necessary packages
-import os
 import create_receptors as cr
 import stilt_setup as ss
 from config import run_config, structure_check
 import funcs.ac_funcs as ac
-import subprocess
-import sys
-
-
 
 def main():
     config_json_fname = 'input_config_fulltest.json'
