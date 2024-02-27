@@ -278,6 +278,7 @@ class met_handler:
 
 def main():
     '''This main function will setup the stilt project using the configuration file'''
+
     config_json_fname = 'input_config_fulltest.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname)
     structure_check.directory_checker(configs,run=True)

@@ -16,6 +16,9 @@ import shutil
 import subprocess
 import pytz
 import git
+import string
+import re
+from pylr2 import regress2
 import pysolar.solar as solar
 from geographiclib.geodesic import Geodesic
 from herbie import Herbie
@@ -319,6 +322,55 @@ def dtstr_to_dttz(dt_str,timezone):
     dt = pytz.timezone(timezone).localize(dt)
     return dt
 
+def merge_oofdfs(oof_dfs,dropna=False):
+    '''Function to merge oof dfs and add the instrument id as a suffix to each column name. Generally we use
+    this when comparing two oof dfs, such as correcting one to another via an offset. 
+    
+    Args: 
+    oof_dfs (dict): dictionary of oof dataframes, where the key is the instrument id (like 'ha') and the value is the dataframe
+    dropna (bool): True if we want to drop na values (when joining, often there are many), False if not. Default False
+    
+    Returns:
+    merged_df (pd.DataFrame): pandas dataframe of the merged oof dfs, with suffixes for instrument id added to each column
+    '''
+
+    inst_ids = oof_dfs.keys() #get the instrument ids
+    dfs_for_merge = {} #initialize the dataframes for merging
+    for inst_id in inst_ids: #loop through the instrument ids
+        df = oof_dfs[inst_id].copy() #copy the dataframe for that instrument id
+        for col in df.columns: #for each of the columns in the dataframe
+            df = df.rename(columns={col:f'{col}_{inst_id}'}) #add the instrument id as a suffix to the original column name after a _
+        dfs_for_merge[inst_id] = df #add this dataframe to the merge dict
+    merged_df = pd.DataFrame() #initialize the merged dataframe
+    for inst_id in inst_ids: #for all of the dataframes
+        merged_df = pd.concat([merged_df,dfs_for_merge[inst_id]],axis = 1) #merge them into one by concatenating
+    if dropna: #if we want to drop the na values,
+        merged_df = merged_df.dropna() #do it
+    return merged_df
+
+def lin_regress_2(df,x_spec,y_spec):
+    '''Does a type II linear regression and returns the relevant details as a dictionary
+    
+    Args:
+    df (pd.DataFrame) : pandas dataframe containing the data on which we want to do the regression
+    x_spec (str) : name of the column in the df that is the "x" data for the regression
+    y_spec (str) : name of the column in the df that is the "y" data for the regression
+    
+    Returns:
+    reg_details (dict) : a dictionary containing details of the regression, including x and y lines, slope, intercept, and r2
+    '''
+
+    regression = regress2(df[x_spec],df[y_spec]) #run the regression 
+    x_regr_line = np.linspace(df[x_spec].min(),df[x_spec].max(),10) #create the x line from min to max
+    y_regr_line = x_regr_line * regression['slope'] + regression['intercept']  #create the y regression line using the x min to max values
+    reg_details = dict(lm = regression,
+               x_regr_line = x_regr_line,
+               y_regr_line = y_regr_line,
+               slope = regression['slope'],
+               yint = regression['intercept'],
+               r2 = regression['r']**2) #create the details 
+    return reg_details 
+
 def get_stilt_ncfiles(output_dir):
     by_id_fulldir = os.path.join(output_dir,'by-id')
     id_list = os.listdir(by_id_fulldir)
@@ -339,7 +391,7 @@ class oof_manager:
         self.oof_data_folder = oof_data_folder
         self.timezone = timezone
 
-    def load_oof_df_inrange(self,dt1,dt2,filter_flag_0=False):
+    def load_oof_df_inrange(self,dt1,dt2,filter_flag_0=False,print_out=False,cols_to_load=None):
         '''Loads a dataframe from an oof file for datetimes between the input values
         
         Args:
@@ -347,6 +399,8 @@ class oof_manager:
         dt2_str (str) : string for the end time of the desired range of form "YYYY-mm-dd HH:MM:SS" 
         oof_filename (str) : name of the oof file to load
         filter_flag_0 (bool) : True will filter the dataframe to rows where the flag column is 0 (good data), false returns all the data
+        print_out (bool) : Will print a message telling the user that they are loading a certain oof file. Default False. 
+        cols_to_load (list) : List of strings that are the names of the oof data columns to load. Default is None, which loads all of the columns. 
 
         Returns:
         df (pd.DataFrame) : pandas dataframe loaded from the oof files, formatted date, and column names       
@@ -357,13 +411,57 @@ class oof_manager:
         oof_files_inrange = self.get_oof_in_range(dt1,dt2)
         full_df = pd.DataFrame()
         for oof_filename in oof_files_inrange:
-            df = self.df_from_oof(oof_filename) #load the oof file to a dataframe
-            df = self.df_dt_formatter(df) #format the dataframe to the correct datetime and column name formats
+            if print_out:
+                print(f'Loading {oof_filename}')
+            df = self.df_from_oof(oof_filename,fullformat = True, filter_flag_0 = filter_flag_0, cols_to_load=cols_to_load) #load the oof file to a dataframe
+            #df = self.df_dt_formatter(df) #format the dataframe to the correct datetime and column name formats
             df = df.loc[(df.index>=dt1)&(df.index<=dt2)] #filter the dataframe between the input datetimes
-            if filter_flag_0: #if we want to filter by flag
-                df = df.loc[df['flag'] == 0] #then do it!
+            #if filter_flag_0: #if we want to filter by flag
+            #    df = df.loc[df['flag'] == 0] #then do it!
             full_df = pd.concat([full_df,df])
         return full_df
+
+    def df_from_oof(self,filename,fullformat = False,filter_flag_0 = False,cols_to_load=None):
+        '''Load a dataframe from an oof file
+        
+        Args:
+        filename (str) : name of the oof file (not the full path)
+        fullformat (bool) : if you want to do the full format
+        filter_flag_0 (bool) : if you want to only get the 0 flags (good data), set to True
+        cols_to_load (list) : list of strings of the oof columns you want to load. Default None which loads all of the columns
+        
+        Returns:
+        df (pd.DataFrame) : a pandas dataframe loaded from the em27 oof file with applicable columns added/renamed
+        '''
+
+        oof_full_filepath = os.path.join(self.oof_data_folder,filename) #get the full filepath using the class' folder path
+        header = self.read_oof_header_line(oof_full_filepath)
+        if cols_to_load == None: #if use_cols is none, we load all of the columns into the dataframe
+            df = pd.read_csv(oof_full_filepath,
+                            header = header,
+                            delim_whitespace=True,
+                            skip_blank_lines=False) #read it as a csv, parse the header
+        else:
+            must_have_cols = ['flag','year','day','hour','lat(deg)','long(deg)','zobs(km)'] #we basically always need these columns
+            usecols = cols_to_load.copy() #copy the cols to load so it doesn't alter the input list (we often use "specs" or simlar)
+            for mhc in must_have_cols: #loop through the must haves
+                if mhc not in cols_to_load: #if they aren't in the columns to load
+                    usecols.append(mhc) #add them 
+
+            df = pd.read_csv(oof_full_filepath, #now load the dataframe with the specific columns defined
+                header = header,
+                delim_whitespace=True,
+                skip_blank_lines=False,
+                usecols = usecols) #read it as a csv, parse the header
+                
+        df['inst_zasl'] = df['zobs(km)']*1000 #add the instrument z elevation in meters above sea level (instead of km)
+        df['inst_lat'] = df['lat(deg)'] #rename the inst lat column
+        df['inst_lon'] = df['long(deg)'] #rename the inst lon column 
+        if fullformat:
+            df = self.df_dt_formatter(df)
+        if filter_flag_0:
+            df = df.loc[df['flag']==0]
+        return df
 
     def tzdt_from_str(self,dt_str):
         '''Apply the inherent timezone of the class to an input datetime string
@@ -378,28 +476,6 @@ class oof_manager:
         dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S') #create the datetime
         dt = pytz.timezone(self.timezone).localize(dt) #apply the timezone
         return dt
-
-    def df_from_oof(self,filename,fullformat = False,filter_flag_0 = False):
-        '''Load a dataframe from an oof file
-        
-        Args:
-        filename (str) : name of the oof file (not the full path)
-        fullformat (bool) : if you want to do the full format
-        
-        Returns:
-        df (pd.DataFrame) : a pandas dataframe loaded from the em27 oof file with applicable columns added/renamed
-        '''
-
-        oof_full_filepath = os.path.join(self.oof_data_folder,filename) #get the full filepath using the class' folder path
-        df = pd.read_csv(oof_full_filepath,header = self.read_oof_header_line(oof_full_filepath),sep='\s+',skip_blank_lines=False) #read it as a csv, parse the header
-        df['inst_zasl'] = df['zobs(km)']*1000 #add the instrument z elevation in meters above sea level (instead of km)
-        df['inst_lat'] = df['lat(deg)'] #rename the inst lat column
-        df['inst_lon'] = df['long(deg)'] #rename the inst lon column 
-        if fullformat:
-            df = self.df_dt_formatter(df)
-        if filter_flag_0:
-            df = df.loc[df['flag']==0]
-        return df
 
     def read_oof_header_line(self,full_file_path):
         '''Reads and parses the header line of an oof file
@@ -759,6 +835,7 @@ class DEM_handler:
         surface_height = dem_df.loc[idx][self.dem_dataname] #return the value requested
         return surface_height
 
+
 class SlurmHandler:
     '''This class is for creating, adding to, and submitting a slurm script that can be submitted with sbatch'''
 
@@ -1025,10 +1102,301 @@ class StiltReceptors:
 
         return split_dfs    
 
-def main():
-    output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'
-    get_stilt_ncfiles(output_dir)
+class met_loader_ggg:
+    '''Class to handle loading meteorological data that has been formatted for use in GGG/EGI.
+    Generally, data should be split into daily files of the form YYYYMMDD_em27id.siteid.txt, where em27id is the two character
+    id like "UA" or "HA", and siteid is the mesowest site id like "WBB". 
+
+    These files should contain the following columns:
+    'UTCDate' : Date in UTC of form yy/mm/dd
+    'UTCTime' : Time in UTC of form HH:MM:SS
+    'Pout' : outside pressure, in hPa
+    'Tout' : outside temperature, in deg C
+    'RH' : relative humidity, in %
+    'WSPD' : wind speed, in m/s
+    'WDIR' : wind direction, in degrees clockwise from north
+    'wind_na' : boolean indicating whether the WSPD was na in the raw data (changed to 0.0 for use in GGG, should be changed back)
+
+
+    '''
+
+    def __init__(self,daily_met_path,column_mapper = None):
+        '''
+        Args:
+        daily_met_path (str) : path to where the daily txt met files are stored
+        column_mapper (dict) : a dictionary to change names of the columns, default None which gives the default mapper below
+        '''
+
+        self.daily_met_path = daily_met_path
+        if column_mapper == None: #Map to new names of columns, can specify if needed or use the default below
+            self.column_mapper = {'Pout':'pres','Tout':'temp','RH':'rh','WSPD':'ws','WDIR':'wd'} #default mapper for ggg formatted data
+
+    def load_data_inrange(self,dt1,dt2):
+        '''Loads all of the met data within a certin datetime range
+        
+        Args:
+        dt1 (datetime.datetime) : a timezone aware datetime to start the data period
+        dt2 (datetime.datetime) : a timezone aware datetime to end the data period
+        
+        Returns:
+        full_dataframe (pandas.DataFrame) : a dataframe of all of the met data in the range, with a datetime index wind columns corrected
+        '''
+
+        files_in_range = self.get_files_inrange(dt1,dt2) #get the files that are in the range 
+        full_dataframe = pd.DataFrame() #initialize the full dataframe
+        for fname in files_in_range: #loop through the files in the range
+            df = self.load_format_single_file(fname) #load and format the individual file
+            full_dataframe = pd.concat([full_dataframe,df]) #concatenate it into the big dataframe
+        full_dataframe = full_dataframe.loc[(full_dataframe.index>=dt1) & (full_dataframe.index<=dt2)] #snip the dataframe to the range
+        return full_dataframe
+
+    def load_format_single_file(self,fname):
+        '''Loads and formats a single met file given the filename
+        
+        Args: 
+        fname (str) : name of the file in the self.daily_met_path folder to load
+        
+        Returns:
+        df (pandas.DataFrame) : loaded and formated dataframe including datetime index and wind correction
+        '''
+
+        df = self.load_single_file(fname) #load the file
+        df = self.add_dt_index(df) #add the dt as an index
+        df = self.change_col_names(df) #change the column names
+        df = self.wind_handler(df) #handle the wind values (deal with na and add u/v columns)
+        return df
+
+    def load_single_file(self,fname):
+        '''Reads in a single file to a dataframe
+        
+        Args: 
+        fname (str) : name of the file in the self.daily_met_path folder to load
+        
+        Returns:
+        df (pandas.DataFrame) : raw loaded dataframe
+        '''
+
+        fullpath = os.path.join(self.daily_met_path,fname) #get the full path
+        df = pd.read_csv(fullpath) #load the file
+        return df
     
+    def add_dt_index(self,df):
+        '''Adds an index corresponding to the datetime based on the ggg file structure
+        
+        Args:
+        df (pandas.DataFrame) : a dataframe loaded from a ggg style txt met file
+        
+        Returns:
+        df (pandas.DataFrame) : the same dataframe, with a datetime index that is timezone aware (ggg style files should always be UTC)
+        '''
+
+        df.index = pd.to_datetime(df['UTCDate']+' '+df['UTCTime'],format='%y/%m/%d %H:%M:%S').dt.tz_localize('UTC') #parse the datetime
+        return df
+    
+    def change_col_names(self,df):
+        '''Changes the column names from a loaded dataframe to those in self.column_mapper 
+        
+        Args:
+        df (pandas.DataFrame) : a dataframe loaded from a ggg style txt met file
+        
+        Returns:
+        df (pandas.DataFrame) : the same dataframe, with the column names changed
+        '''
+
+        return df.rename(columns = self.column_mapper)
+
+    def wind_handler(self,df):
+        '''This handles the wind columns which are often manipulated to allow for running in EGI.
+        
+        Read more in mesowest_met_handler.py. Basically, we can't have any NaNs or blanks in the wind columns to run EGI, so we replace them 
+        with 0.0. However, this does not mean they are actually 0, so we have added a "wind_na" column indicating if the wind speed values
+        are actually 0 or if they were na. Wind direction values will always be na if windspeed is either 0 or na. 
+        
+        Args:
+        df (pandas.DataFrame) : a dataframe loaded from a ggg style txt met file
+        
+        Returns:
+        df (pandas.DataFrame) : the same dataframe with na values put in the right spots, and u and v wind vector columns added
+        '''
+        df.loc[df['ws'] == 0, 'ws'] = np.nan #can't have a wind direction if the wind speed is 0, so set it to nan
+        if 'wind_na' in df.columns: #if there isn't a wind_na column, just return the dataframe
+            df.loc[df['wind_na'] == True, 'ws'] = np.nan #if the windspeed was na (wind_na is true), set it back to na instead of 0 
+        df[['u','v']] = df.apply(lambda row: wdws_to_uv(row['ws'],row['wd']),axis = 1,result_type='expand') #add wind columns for u and v to do averaging if needed
+        return df
+        
+    def get_files_inrange(self,dt1,dt2):
+        '''This gets the files that contain data in the range between dt1 and dt2
+        
+        Args:
+        dt1 (datetime.datetime) : a timezone aware datetime to start the data period
+        dt2 (datetime.datetime) : a timezone aware datetime to end the data period
+        
+        Returns:
+        files_in_range (list) : a list of filenames only, in the self.daily_met_path, that fall in the dt range
+        '''
+        daystrings_in_range = [] #initialize the day strings in the range
+        delta_days = dt2.date()-dt1.date() #get the number of days delta between the end and the start
+        for i in range(delta_days.days +1): #loop through that number of days 
+            day = dt1.date() + datetime.timedelta(days=i) #get the day by incrementing by i (how many days past the start)
+            daystrings_in_range.append(day.strftime('%Y%m%d')) #append a string of the date (YYYYmmdd) to match with filenames
+        files_in_range = [] #initilize the filenames that will be in the range
+        for file in self.get_sorted_fnames(): #loop through the sorted oof files in the data folder
+            for daystring_in_range in daystrings_in_range: # loop through the daystrings that are in the range
+                if daystring_in_range in file: #if the daystring is in the filename, 
+                    files_in_range.append(file) #append it. Otherwise keep going
+        return files_in_range
+
+    def get_sorted_fnames(self):
+        '''Sorts the filenames within the daily met path
+        
+        Returns:
+        (list) : a sorted list of all of the elements within the daily_met_path
+        '''
+        
+        return sorted(os.listdir(self.daily_met_path))
+    
+class met_loader_trisonica:
+    '''Class to handle loading meteorological data that has been collected by a Trisonica anemometer
+    Generally, data are recorded as daily files of the form YYYYMMDD_anem.txt. 
+
+    The form of these files is a bit weird. There are often blank lines between lines of data, and the data lines look something like this:
+    ET= 1690299686.988468 DT= 2023-07-25 15:41:26.988468 S  02.61 D  073 U -02.48 V -00.77 W -00.30 T  20.56 H  68.93 DP  14.66 P  849.52 \
+        AD  0.9979916 PI -000.1 RO -001.5 MD  011 TD  011
+    
+    '''
+
+    def __init__(self,daily_met_path,resample_interval,column_mapper=None):
+        '''
+        Args:
+        daily_met_path (str) : path to where the daily txt met files are stored
+        '''
+
+        self.daily_met_path = daily_met_path
+        self.resample_interval = resample_interval
+        self.headers_list = ['ET','Date','Time','S','D','U','V','W','T','H','DP','P','AD','PI','RO','MD','TD']
+        if column_mapper == None: #Map to new names of columns, can specify if needed or use the default below
+            self.column_mapper = {'U':'u','V':'v','W':'w','T':'temp','P':'pres','H':'rh','WDIR':'wd'} #default mapper for ggg formatted data
+
+
+    def load_data_inrange(self,dt1,dt2):
+        '''Loads all of the met data within a certin datetime range
+        
+        Args:
+        dt1 (datetime.datetime) : a timezone aware datetime to start the data period
+        dt2 (datetime.datetime) : a timezone aware datetime to end the data period
+        
+        Returns:
+        full_dataframe (pandas.DataFrame) : a dataframe of all of the met data in the range
+        '''
+
+        files_in_range = self.get_files_inrange(dt1,dt2) #get the files that are in the range 
+        full_dataframe = pd.DataFrame() #initialize the full dataframe
+        for fname in files_in_range: #loop through the files in the range
+            df = self.load_format_single_file(fname) #load and format the individual file
+            full_dataframe = pd.concat([full_dataframe,df]) #concatenate it into the big dataframe
+        full_dataframe = full_dataframe.loc[(full_dataframe.index>=dt1) & (full_dataframe.index<=dt2)] #snip the dataframe to the range
+        full_dataframe['ws'],full_dataframe['wd'] = np.vectorize(uv_to_wdws)(full_dataframe['u'],full_dataframe['v'])
+        return full_dataframe
+
+    def load_format_single_file(self,fname):
+        '''Loads and formats a single met file given the filename
+        
+        Args: 
+        fname (str) : name of the file in the self.daily_met_path folder to load
+        
+        Returns:
+        df (pandas.DataFrame) : loaded and formated dataframe including datetime index 
+        '''
+
+        fullpath = os.path.join(self.daily_met_path,fname) #get the full path
+        with open(fullpath,'r',errors='ignore') as f: #we need to do some more sophisticated loading
+            rows_list = [] #initialize a list to store the rows of data
+            for i,line in enumerate(f): #loop through each line in the file
+                newline = line.strip() #strip the newline character
+                if len(newline) < 5: #if there are less than 5 characters, it's a bad line, so skip it
+                    continue
+                newline = newline.replace('=','') #replace equal signs with nothing
+                for let in string.ascii_letters.replace('n','').replace('a',''): #replace any ascci characters with nothing
+                    newline = newline.replace(let,'')
+                newline = newline.replace(',',' ') #replace commas with a space
+                if newline[0] == ' ': #if the line starts with a space, remove it
+                    newline = newline[1:]
+                newline = re.sub(r"\s+",",",newline) #substitute whitespace with a comma
+                line_to_append = newline.split(',') # split the line by comma, should be all the good data
+                if len(line_to_append) == len(self.headers_list): #check to make sure the number of data elements from the split lines matches the headers 
+                    rows_list.append(line_to_append) #if so, append it to the rows list
+            df = pd.DataFrame(rows_list) #create a dataframe from the rows
+            df.columns = self.headers_list #set the columns to be the headers from the headers list
+            for col in df.columns: #make the data numeric for all columns
+                df[col] = pd.to_numeric(df[col],errors='coerce')
+            df = df.dropna(axis = 1,how = 'all') #drop na where all
+            df['DT'] = pd.to_datetime(df['ET'],unit='s') #set the datetime using the epoch time
+            df = df.set_index('DT') #make the datetime the index
+            df.index = df.index.tz_localize('UTC') #add timezone to index, should be UTC
+            df = df.drop(['S','D'],axis = 1) #drop speed and direction since we have U and V and don't want to mess up averaging 
+        if self.resample_interval is not None:
+            df = df.resample(self.resample_interval).mean(numeric_only=True) #resample
+        df = df.rename(columns = self.column_mapper) #rename the columns
+        return df
+    
+    def get_files_inrange(self,dt1,dt2):
+        '''This gets the files that contain data in the range between dt1 and dt2
+        
+        Args:
+        dt1 (datetime.datetime) : a timezone aware datetime to start the data period
+        dt2 (datetime.datetime) : a timezone aware datetime to end the data period
+        
+        Returns:
+        files_in_range (list) : a list of filenames only, in the self.daily_met_path, that fall in the dt range
+        '''
+        daystrings_in_range = [] #initialize the day strings in the range
+        delta_days = dt2.date()-dt1.date() #get the number of days delta between the end and the start
+        for i in range(delta_days.days +1): #loop through that number of days 
+            day = dt1.date() + datetime.timedelta(days=i) #get the day by incrementing by i (how many days past the start)
+            daystrings_in_range.append(day.strftime('%Y%m%d')) #append a string of the date (YYYYmmdd) to match with filenames
+        files_in_range = [] #initilize the filenames that will be in the range
+        for file in self.get_sorted_fnames(): #loop through the sorted oof files in the data folder
+            for daystring_in_range in daystrings_in_range: # loop through the daystrings that are in the range
+                if daystring_in_range in file: #if the daystring is in the filename, 
+                    files_in_range.append(file) #append it. Otherwise keep going
+        return files_in_range
+
+    def get_sorted_fnames(self):
+        '''Sorts the filenames within the daily met path
+        
+        Returns:
+        (list) : a sorted list of all of the elements within the daily_met_path
+        '''
+        
+        return sorted(os.listdir(self.daily_met_path))
+
+        
+
+def main():
+    #output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'
+    #get_stilt_ncfiles(output_dir)
+    #copy_em27_oofs_to_singlefolder('/uufs/chpc.utah.edu/common/home/lin-group15/agm/em27/ha/results','/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/fall_2023')
+
+
+    #the full dataset as of now is between the below dates
+    import time
+    import sys
+    t1 = time.time()
+
+    dt1_str = '2023-11-20 00:00:00'
+    dt2_str = '2023-12-01 00:00:00' 
+    timezone = 'US/Mountain'
+    data_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/SLC_EM27_ha_2022_2023_oof_v2_nasrin_correct'
+    cols_to_load = ['xch4(ppm)','solzen(deg)']
+    dt1 = dtstr_to_dttz(dt1_str,timezone)
+    dt2 = dtstr_to_dttz(dt2_str,timezone)
+    my_oof_manager = oof_manager(data_folder,timezone)
+    df = my_oof_manager.load_oof_df_inrange(dt1,dt2,cols_to_load=cols_to_load)
+
+    t2 = time.time()
+    print(t2-t1)
+    print(df.describe())
+    print(list(df.columns))
 
 if __name__ == "__main__":
    main()
