@@ -1,4 +1,4 @@
-name: atmos_column
+name: atmos_column1
 channels:
   - conda-forge
   - defaults
@@ -20,6 +20,10 @@ dependencies:
   - pysolar
   - plotly
   - netcdf4
+  - cdo
+  - python-cdo
+  - gitpython
+  - pyarrow
   - pip
   - pip:
     - simplekml

@@ -13,7 +13,9 @@ import os
 import datetime
 import itertools
 import shutil
+import subprocess
 import pytz
+import git
 import string
 import re
 from pylr2 import regress2
@@ -23,6 +25,20 @@ from herbie import Herbie
 import xarray as xr
 
 #Functions     
+def get_git_hash(path = '.'):
+    '''Gets the current git hash
+    
+    Args:
+    path (str) : full path to the git repo, default current dir
+
+    Returns:
+    sha (str) : the git hash of the input directory
+    '''
+
+    repo = git.Repo(path = path,search_parent_directories = True)
+    sha = repo.head.object.hexsha
+    return sha
+
 def wdws_to_uv(ws,wd):
     '''Converts a wind speed and direction to u/v vector
     Ref: http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv#:~:text=A%20positive%20u%20wind%20is,wind%20is%20from%20the%20north.
@@ -85,22 +101,23 @@ def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon
     
     print('Changing slant df to receptor style df')
     df1 = df.copy() #copy the df
-    df1 = df1.reset_index() #reset the index, especially necessary in the case of multiindexing
-    df1 = df1.reset_index() #reset it again so we can get a simulation id from the numerical index
-    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl'}) #rename the columns
-    df1 = df1[['run_times','lati','long','zagl','z_is_agl','index']] #only get the columns we need
+    df1 = df1.reset_index() #reset the index to get the dt in a column
+    df1 = df1.rename(columns={lati_colname:'lati',long_colname:'long',zagl_colname:'zagl',
+                              run_times_colname:'run_times',rec_is_agl_colname:'z_is_agl',
+                              'receptor_zasl':'zasl','z_ail':'zail'}) #rename the columns
+    df1 = df1[['run_times','lati','long','zagl','z_is_agl','zasl','zail']] #only get the columns we need
+
     #do some rounding so we don't have to write a bunch of digits
     df1['lati'] = df1['lati'].round(4)
     df1['long'] = df1['long'].round(4)
     df1['zagl'] = df1['zagl'].round(2)
     df1['run_times'] = df1['run_times'].round('S')
 
-    #TODO This sucks, want just an id then refer back to the receptor file for details. 
-    #df1['sim_id'] = df1.apply(lambda row: f"{row['run_times'].year}_{row['run_times'].month}_{row['run_times'].day}_{row['index']}",axis=1)
-    df1['sim_id'] = df1.apply(lambda row: f"{row['run_times'].year}{row['run_times'].month:02}{row['run_times'].day:02}{row['run_times'].hour:02}{row['run_times'].minute:02}{row['run_times'].second:02}_{round(row['lati'],4)}_{round(row['long'],4)}_{round(row['zagl'],2)}_{row['index']}",axis=1)
-
     #df1['run_times'] = df1['run_times'].dt.tz_localize(None)
     df1 = df1.dropna() #drop na values, usually where the sun is not up 
+    df1 = df1.reset_index(drop=True) #reset the index, especially necessary in the case of multiindexing
+    df1 = df1.reset_index() #reset it again so we can get a simulation id from the numerical index
+    df1 = df1.rename(columns={'index':'sim_id'}) #rename the index column the sim id
     return df1
 
 def format_datetime(year,month,day,hour,minute,second,tz='US/Mountain'):
@@ -184,7 +201,7 @@ def get_nearest_from_grid(hrrr_grid_df,pt_lat,pt_lon,colname_to_extract='HGT_P0_
                 (hrrr_grid_df[lat_name]>=pt_lat-.1)&
                 (hrrr_grid_df[lat_name]<=pt_lat+.1)] #filter df to 0.1 degrees around the point to speed up processs
     if len(df.dropna()) == 0: #if in creating the df, all the points were dropped, we're outside the bounds of the grid. Return nan
-        print('Point is outside the bounds of the HRRR grid')
+        #print('Point is outside the bounds of the HRRR grid')
         return np.nan
     df['dist'] = np.vectorize(haversine)(df[lat_name],df[lon_name],pt_lat,pt_lon) #add a distance column for each subpoint using haversine
     idx = df['dist'].idxmin() #find the minimum distance
@@ -304,7 +321,6 @@ def dtstr_to_dttz(dt_str,timezone):
     dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
     dt = pytz.timezone(timezone).localize(dt)
     return dt
-
 
 def merge_oofdfs(oof_dfs,dropna=False):
     '''Function to merge oof dfs and add the instrument id as a suffix to each column name. Generally we use
@@ -687,7 +703,7 @@ class ground_slant_handler:
         multi_df['receptor_zasl'] = receptor_zasls
         return multi_df
 
-    def run_slant_at_intervals(self,dt1,dt2,my_dem_handler,interval='1H'):
+    def run_slant_at_intervals(self,dt1,dt2,my_dem_handler,interval='1h'):
         '''Gets a slant dataframe given a datetime range and interval
         
         Args:
@@ -812,12 +828,279 @@ class DEM_handler:
         '''
         dem_df = self.get_sub_dem_df(pt_lat,pt_lon) #get the df
         if len(dem_df)==0: #if there is no df, we're outsdie the domain of the DEM, so return nan
-            print('point is outside the DEMs range')
+            #print('point is outside the DEMs range')
             return np.nan
         dem_df['dist'] = np.vectorize(haversine)(dem_df[self.dem_latname],dem_df[self.dem_lonname],pt_lat,pt_lon) #add a distance column for each subpoint using haversine
         idx = dem_df['dist'].idxmin() #find the minimum distance
         surface_height = dem_df.loc[idx][self.dem_dataname] #return the value requested
         return surface_height
+
+
+class SlurmHandler:
+    '''This class is for creating, adding to, and submitting a slurm script that can be submitted with sbatch'''
+
+    def __init__(self,configs,custom_submit_name = None):
+        '''
+        Args:
+        configs (obj of type run_config_obj) : configurations from a config json file to use 
+        custom_submit_name (str) : if you would like a custom job submission name, define it here. Will default None to 'submit.sh'
+        '''
+        self.configs = configs #grabs everything from the configs
+        if custom_submit_name is None: #default setting
+            custom_submit_name = 'submit.sh'
+        self.full_filepath = os.path.join(self.configs.folder_paths['slurm_folder'],'jobs',custom_submit_name) #define the full filepath of the submit fle
+    
+    def stilt_setup(self):
+        '''Function to setup the initial lines for a set of STILT runs'''
+
+        header = self.create_slurm_header() #create the header using the configs
+        self.write_as_new_file(header) #write the header to a new file -- this will overwrite the current self.full_filepath
+        self.append_to_file('SECONDS=0') #add a line initializeing "seconds" so we can display time it took to run in the output
+    
+    def add_stilt_run(self,stilt_name,run_stilt_fname='ac_run_stilt.r'):
+        '''Adds the lines necessary to call STILT in the submit script located at self.full_filepath
+        
+        Args:
+        stilt_name (str) : name of the stilt project (within configs.folder_paths['stilt_folder']) to be run
+        run_stilt_fname (str) : name of the run_stilt file in stilt_name/r/, defaults to "ac_run_stilt.r" which is the default for stilt_setup.py
+        '''
+
+        slurm_line = f"Rscript {os.path.join(self.configs.folder_paths['stilt_folder'],stilt_name,'r',run_stilt_fname)}" #create the correct R call to the slurm script
+        self.add_echo_line(slurm_line) # add a line that will echo the Rscript call to the output
+        self.append_to_file(slurm_line) #actually append the Rscript line to be run
+        self.echo_elapsed_seconds() #echo to the output how many seconds have passed since last call
+        self.append_to_file('SECONDS=0') #reset seconds for the next elapsed time
+
+    def submit_sbatch(self):
+        '''Submits the sbatch script at self.full_filepath'''
+
+        subprocess.call(['sbatch', self.full_filepath]) #do the call
+
+    def create_slurm_header(self,shebang = '#!/bin/bash'):
+        '''Creates the header for a submit file that can be read and submitted using sbatch
+        
+        Args:
+        shebang (str) : the shebang to go at the beginning of the submit file, defaults to bash '!#/bin/bash'
+
+        Returns:
+        header (str) : a string, joined by newlines, that is the header for the submit file
+        '''
+
+        header_lines = [] #initialize a list of lines
+        header_lines.append(shebang) #the first line should be the shebang
+        for key,value in self.configs.slurm_options.items(): #loop through all of the "slurm_options" in the configs
+            header_lines.append(f"#SBATCH --{key}={value}") #append the slurm options with the sbatch prefix needed for slurm
+        log_path = os.path.join(self.configs.folder_paths['slurm_folder'],'logs',"%A.out") #define path of the log file TODO make it something better than just the job number %A...
+        header_lines.append(f"#SBATCH -o {log_path}") #append the log  path
+        header_lines.append('')  #append a blank for an extra line
+        header = '\n'.join(header_lines) #join with newlines to create the header
+        return header
+
+    def add_echo_line(self,text_to_echo):
+        '''Adds a line of text that we want to echo from the submit file to the stdout
+        
+        Args:
+        text_to_echo (str) : what should be echoed'''
+
+        self.append_to_file(f'echo "{text_to_echo}"') #append the echo line
+
+    def echo_elapsed_seconds(self):
+        '''Echo the amount of time sense the last $SECONDS=0 call to the stdout'''
+
+        self.add_echo_line("Time since last = $SECONDS seconds")
+
+    def append_to_file(self,text):
+        '''Append a line of text to the submit file
+        
+        Args:
+        text (str) : the text to append to the file
+        '''
+
+        with open(self.full_filepath,'a') as f: #open with append mode
+            f.write(text+'\n') #add the text and a newline
+
+    def write_as_new_file(self,text): 
+        '''Overwrite the existing full_filepath and create a new file with text as an input
+        
+        Args:
+        text (str) : the text to go at the top of the new file
+        '''
+
+        with open(self.full_filepath,'w') as f: #open under write mode
+            f.write(text+'\n') #write the text and a new line
+
+class StiltReceptors:
+    '''A class to handle writing and loading stilt receptor files'''
+
+    def __init__(self,configs,dt1=None,dt2=None,path=None,full_filepath=None):
+        '''Initialize the class with configs as the necessary argument
+        
+        Args:
+        configs (obj, from config/run_config.run_config_obj()) : configuration parameters scraped from the input config file
+        dt1 (datetime.datetime) : datetime object for use in naming. Necessary when creating a new receptor csv. Defaults none for loading
+        dt2 (datetime.datetime) : datetime object for use in naming. Necessary when creating a new receptor csv. Defaults none for loading
+        path (str) : path to where either the receptor file should be written, or read from. Defaults none and set to output_folder/receptors/column_type
+        full_filepath (str) : if you want to give the full filepath directly, can do that
+        '''
+
+        self.configs = configs 
+        self.dt1 = dt1
+        self.dt2 = dt2
+        if path is None:
+            path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #get the path, including the column type, where receptor csv will be stored
+        if not os.path.isdir(path):
+            raise Exception(f'Invalid path {path}, nothin there.')
+        
+        if full_filepath is not None: #If the user input the full filepath
+            self.full_filepath = full_filepath #set it and be done
+        else: #otherwise, either find it or create it based on datetime values
+            if dt1 is None: #if the datetime is none:
+                fname = self.find_fname(path) #we need to find the fname in the path
+            else: #if the datetime is there
+                fname = self.create_fname() #we will be creating an fname
+            self.full_filepath = os.path.join(path,fname) #define the full filepath
+
+    def find_fname(self,path):
+        '''Function to find a receptor filename in the path. A little kludgy now because it only works if theres just 1 csv in the path
+        
+        Args:
+        path (str) : where to look for receptor files
+        '''
+
+        fnames = os.listdir(path) #get all the files in the path
+        fnames = [f for f in fnames if f.endswith('csv')]  #only get the ones that end with csv
+        if len(fnames) > 1: #if there are multiple files in the path
+            raise Exception('Havent dealt with this case yet of multiple rec files in one folder')
+        elif len(fnames) == 0:
+            raise Exception(f'No csv files in {path}')
+        else:
+            return fnames[0]
+
+    def create_fname(self):
+        '''Defines the name of a receptor file based on the datetime range 
+        
+        Returns:
+        fname (str) : filename based on the date and datetime range of the class
+        '''
+        if self.dt1 is None:
+            raise Exception('You must initialize this class with dt1 and dt2 in order to create a new receptor file.')
+        date = self.dt1.strftime('%Y%m%d') #grab the date of the dt1
+        t1 = self.dt1.strftime('%H%M%S') #grab the start time
+        t2 = self.dt2.strftime('%H%M%S') #grab the end time
+        fname = f'{date}_{t1}_{t2}.csv' #define the filename as YYYYmmdd_HHMMSS_HHMMSS.csv
+        return fname
+    
+    #Below are used for creating receptor files
+    def create_for_stilt(self):
+        '''The initialization of a receptor file to be used in stilt. Will overwrite anything with the self.full_filepath in favor of this call'''
+
+        header = self.receptor_header()
+        self.create_overwrite(header)
+
+    def receptor_header(self):
+        '''Write a header for to receptor file 
+        
+        Args:
+        dt1 (datetime.datetime) : start datetime
+        dt2 (datetime.datetime) : end datetime
+
+        Returns:
+        header (str) : the header text
+        '''
+
+        sha = get_git_hash(self.configs.folder_paths['Atmos_Column_folder'])
+        header_lines = [] #initialize the header lines
+        header_lines.append(f'Receptor file created using atmos_column.create_receptors, git hash:{sha}')
+        header_lines.append(f'Column type:{self.configs.column_type}') #like the column type
+        header_lines.append(f'Instrument Location:{self.configs.inst_lat},{self.configs.inst_lon},{self.configs.inst_zasl}masl')#the instrument info
+        header_lines.append(f"Created at:{datetime.datetime.now(tz=datetime.UTC)}") #when the code was run
+        header_lines.append(f"Data date1:{self.dt1.strftime('%Y%m%d')}") #the date of the data
+        header_lines.append(f"Datetime range:{self.dt1},{self.dt2}") #and the range    
+        header_lines.append('') #add a blank to get the last newline    
+        header = '\n'.join(header_lines) #join the list on newlines
+        return header
+
+    def create_overwrite(self,text):
+        '''Creates (if no file exists) or overwrites an existing file at self.full_filepath 
+        
+        Args:
+        text (str) : the text to write at the top of the file'''
+
+        with open(self.full_filepath, 'w') as f: #open the file in write mode 
+            f.write(text + '\n') #write the text and a new line
+
+    def append_text(self,text):
+        '''Appends text to self.full_filepath
+        
+        Args:
+        text (str) : the text to append
+        '''
+
+        with open(self.full_filepath,'a') as f: #open the file in append mode
+            f.write(text + 'n') #write the text and a new line
+
+    def append_df(self,df,index=False):
+        '''Appends a pandas dataframe to self.full_filename as a csv
+        
+        Args:
+        df (pd.DataFrame) : pandas dataframe in the "receptor" style
+        index (bool) : if you want to write the index to the csv, default false
+        '''
+
+        df.to_csv(self.full_filepath,mode = 'a',index=index) #append the receptor dataframe to the created receptor csv with header. 
+
+    #Below are used for reading/loading receptor files
+    def load_receptors(self):
+        '''Main method for loading a receptor file and the associated metadata, and saving to this class'''
+
+        self.parse_rec_header() #parse the header and save the metadata to the calss
+        self.rec_df = self.read_rec_csv() #read the csv file in as a df and save it to the class as rec_df
+        self.split_dfs = self.split_recdf_bytime() #split the dfs into a list of dfs on time for easier usage
+
+    def parse_rec_header(self):
+        '''Read the header of the receptor file and store the data in the class'''
+
+        with open(self.full_filepath) as f: #open the file
+            header_lines = [] #initialize a list of the header lines
+            line = ' ' #make line a space to get into the while loop
+            while line != '': #the header should be followed by a blank line. stop after we read that
+                line = f.readline().strip() #read the line and strip the newline character
+                header_lines.append(line) #append the line to the header_lines list
+
+        for line in header_lines: #loop through the header lines
+            if line.split(':')[0] == 'Instrument Location': #ge the instrument location
+                inst_loc_vals = line.split(':')[-1]
+                self.inst_lat = float(inst_loc_vals.split(',')[0].strip())
+                self.inst_lon = float(inst_loc_vals.split(',')[1].strip())
+                self.inst_zasl = float(inst_loc_vals.split(',')[2].strip('masl'))
+            if line.split(':')[0] == 'Datetime range': #get the datetime range
+                inst_dt_vals = line.split('Datetime range:')[-1]
+                self.dt_range_strs = [inst_dt_vals.split(',')[0],inst_dt_vals.split(',')[1]]
+                self.dt1 = datetime.datetime.strptime(self.dt_range_strs[0],'%Y-%m-%d %H:%M:%S%z')
+                self.dt2 = datetime.datetime.strptime(self.dt_range_strs[1],'%Y-%m-%d %H:%M:%S%z')
+            if line.split(':')[0] == 'Data date':
+                self.data_datestr = line.split(':')[1].strip()
+
+    def read_rec_csv(self):
+        '''Reads the actual data in the receptor file to a pandas dataframe for later reference'''
+       
+        rec_df = pd.read_csv(self.full_filepath,header = 6)
+        rec_df['run_times'] = pd.to_datetime(rec_df['run_times'])
+        return rec_df   
+
+    def split_recdf_bytime(self):
+        '''Splits the receptor dataframe into a list of dataframes, with each having the same run_time (the vertical levels for that run_time)
+        
+        Returns:
+        split_dfs (list): list of dataframes, where each is a dataframe of a single run time representing the vertical levels
+        '''
+       
+        split_dfs = [] #initialize the timegrouped list
+        for name, group in self.rec_df.groupby('run_times'): #groupby runtime
+            sub_df = group.copy() #copy to avoid overwriting
+            split_dfs.append(sub_df) #append the df to the list
+
+        return split_dfs    
 
 class met_loader_ggg:
     '''Class to handle loading meteorological data that has been formatted for use in GGG/EGI.
@@ -833,6 +1116,7 @@ class met_loader_ggg:
     'WSPD' : wind speed, in m/s
     'WDIR' : wind direction, in degrees clockwise from north
     'wind_na' : boolean indicating whether the WSPD was na in the raw data (changed to 0.0 for use in GGG, should be changed back)
+
 
     '''
 

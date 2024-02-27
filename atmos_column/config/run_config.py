@@ -12,36 +12,26 @@ import datetime
 import pytz
 import os
 import json
-import multiprocessing
 
 class run_config_obj:
     '''The main configs object. Used to store all of the necessary config parameters take from an input_config.json type file'''
 
-    def __init__(self,config_json_fname='input_config.json'):
+    def __init__(self,config_path = None, config_json_fname='input_config.json'):
         '''
         Args:
         config_json_fname (str) : name of the configuration file json. Should be in the same folder as this module, and default is input_config.json
         '''
-        self.config_json_fullpath = os.path.join(os.path.dirname(__file__),config_json_fname) #save the config file path
+        if config_path is None: #if the default is chosen
+            config_path = os.path.dirname(__file__) #make the path the path where this was run, should be Atmos_Colum/atmos_column/config
+        self.config_json_fullpath = os.path.join(config_path,config_json_fname) #save the config file path
         json_data = self.load_json() #load the json
         for key in json_data: #for all of the elements in the json
             setattr(self,key,json_data[key]) #set them as attributes in the class, to be accessed with self.key
         self.start_dt = self.dtstr_to_dttz(self.start_dt_str,self.timezone) #the json datetime is a string, so convert it to a datetime
         self.end_dt = self.dtstr_to_dttz(self.end_dt_str,self.timezone) #same for end datetime
         #self.folder_paths['hrrr_subset_path'] = os.path.join(self.folder_paths['hrrr_data_folder'],'subsets') #add the subset path for hrrr surface elevations
-        self.get_lat_lon_zasl() #get the lat/lon/zasl -- will be just the config if column type is not em27, if it is it will be taken from oof
+        #self.get_lat_lon_zasl() #get the lat/lon/zasl -- will be just the config if column type is not em27, if it is it will be taken from oof
         self.split_dt_ranges = self.get_split_dt_ranges() #split the datetimes into daily ranges
-        self.run_stilt_configs['n_hours'] = self.backtraj_hours #add the n_hours parameter to the run stilt cnofigs parameter dict
-        self.get_cores() #get the number of cores to use
-
-    def get_cores(self):
-        '''Gets the number of cores to use from the config file'''
-
-        avail_cores = multiprocessing.cpu_count() #find out how many cores are available
-        if self.cores == 'max': #if the cores parameter is set to "max"
-            self.cores = avail_cores #reset it to the number of cores available
-        if self.cores > avail_cores: #cant use more cores than we have!
-            raise ValueError('Error in input config: more cores than are available')
 
     def load_json(self):
         '''Loads the json from the json filepath'''

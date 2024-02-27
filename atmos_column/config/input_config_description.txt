@@ -37,10 +37,9 @@ outcome. These are described below.
     "output_data_folder" : location where output should be stored
     "stilt_folder" : location where STILT runs should be carried out. Helpful to have this outside the git
         repo. 
+    "slurm_folder" : location where slurm jobs should be submitted and logged. Typically base_project_folder/Atmos_Column/slurm
 
 "z_ail_list" : list of integers representing the heights above the instrument level (ail) at which to place receptors
-
-"backtraj_hours" : how long to run the backtrajectories in STILT
 
 "hrrr_subset_datestr" : string of datetime form (YYYY-mm-dd HH:MM) representing the datetime from which to pull
     surface subset data. 
@@ -49,8 +48,16 @@ outcome. These are described below.
 
 "met_product" : string representation of the met product such as 'nat' in hrrr. Currently unused. 
 
-"cores" : int or 'max'. If int, config will use that many cores (provided there are enough) to parallelize STILT
-    runs. If 'max', config will use all of the available cores to run STILT in parallel. 
+"dem_fname" : name of the dem file to use
+
+"dem_typeid" : dem type to use for getting elevations -- 'aster' or 'hrrr' for now
+
+"slurm_options" : dict containing options for slurm, which will be added using "#SBATCH key=value" to the header of the slurm submit file
+    "nodes" : number of nodes
+    "ntasks" : number of cores
+    "partition" : partition name
+    "account" : account name
+    "time" : wall time like "24:00:00"
 
 "run_stilt_configs" : dict for changing STILT run configuration settings. Keys must match the user-settable
     values in run_stilt.r of the STILT setup. These values will be input into the modified run_stilt.r configuration
