@@ -864,7 +864,7 @@ class SlurmHandler:
         stilt_name (str) : name of the stilt project (within configs.folder_paths['stilt_folder']) to be run
         run_stilt_fname (str) : name of the run_stilt file in stilt_name/r/, defaults to "ac_run_stilt.r" which is the default for stilt_setup.py
         '''
-
+        self.add_echo_line('\n-----------------------------\n') #demarc between stilt runs
         slurm_line = f"Rscript {os.path.join(self.configs.folder_paths['stilt_folder'],stilt_name,'r',run_stilt_fname)}" #create the correct R call to the slurm script
         self.add_echo_line(slurm_line) # add a line that will echo the Rscript call to the output
         self.append_to_file(slurm_line) #actually append the Rscript line to be run
