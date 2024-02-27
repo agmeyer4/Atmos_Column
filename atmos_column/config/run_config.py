@@ -12,17 +12,18 @@ import datetime
 import pytz
 import os
 import json
-import multiprocessing
 
 class run_config_obj:
     '''The main configs object. Used to store all of the necessary config parameters take from an input_config.json type file'''
 
-    def __init__(self,config_json_fname='input_config.json'):
+    def __init__(self,config_path = None, config_json_fname='input_config.json'):
         '''
         Args:
         config_json_fname (str) : name of the configuration file json. Should be in the same folder as this module, and default is input_config.json
         '''
-        self.config_json_fullpath = os.path.join(os.path.dirname(__file__),config_json_fname) #save the config file path
+        if config_path is None: #if the default is chosen
+            config_path = os.path.dirname(__file__) #make the path the path where this was run, should be Atmos_Colum/atmos_column/config
+        self.config_json_fullpath = os.path.join(config_path,config_json_fname) #save the config file path
         json_data = self.load_json() #load the json
         for key in json_data: #for all of the elements in the json
             setattr(self,key,json_data[key]) #set them as attributes in the class, to be accessed with self.key

@@ -24,7 +24,7 @@
     "dem_typeid" : "aster",
     "slurm_options" : {
         "nodes" : 1,
-        "ntasks" : 16,
+        "ntasks" : 28,
         "partition" : "carbon-kp",
         "account" : "carbon-kp",
         "time" : "10:00:00"

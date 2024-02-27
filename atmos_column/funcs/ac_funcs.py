@@ -855,31 +855,68 @@ class SlurmHandler:
 class StiltReceptors:
     '''A class to handle writing and loading stilt receptor files'''
 
-    def __init__(self,configs,dt1,dt2,path=None):
-        self.configs = configs
+    def __init__(self,configs,dt1=None,dt2=None,path=None,full_filepath=None):
+        '''Initialize the class with configs as the necessary argument
+        
+        Args:
+        configs (obj, from config/run_config.run_config_obj()) : configuration parameters scraped from the input config file
+        dt1 (datetime.datetime) : datetime object for use in naming. Necessary when creating a new receptor csv. Defaults none for loading
+        dt2 (datetime.datetime) : datetime object for use in naming. Necessary when creating a new receptor csv. Defaults none for loading
+        path (str) : path to where either the receptor file should be written, or read from. Defaults none and set to output_folder/receptors/column_type
+        full_filepath (str) : if you want to give the full filepath directly, can do that
+        '''
+
+        self.configs = configs 
         self.dt1 = dt1
         self.dt2 = dt2
-        if path == None:
+        if path is None:
             path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #get the path, including the column type, where receptor csv will be stored
         if not os.path.isdir(path):
             raise Exception(f'Invalid path {path}, nothin there.')
-        fname = self.get_fname()
-        self.full_filepath = os.path.join(path,fname)
+        
+        if full_filepath is not None: #If the user input the full filepath
+            self.full_filepath = full_filepath #set it and be done
+        else: #otherwise, either find it or create it based on datetime values
+            if dt1 is None: #if the datetime is none:
+                fname = self.find_fname(path) #we need to find the fname in the path
+            else: #if the datetime is there
+                fname = self.create_fname() #we will be creating an fname
+            self.full_filepath = os.path.join(path,fname) #define the full filepath
 
-    def get_fname(self):
+    def find_fname(self,path):
+        '''Function to find a receptor filename in the path. A little kludgy now because it only works if theres just 1 csv in the path
+        
+        Args:
+        path (str) : where to look for receptor files
+        '''
+
+        fnames = os.listdir(path) #get all the files in the path
+        fnames = [f for f in fnames if f.endswith('csv')]  #only get the ones that end with csv
+        if len(fnames) > 1: #if there are multiple files in the path
+            raise Exception('Havent dealt with this case yet of multiple rec files in one folder')
+        elif len(fnames) == 0:
+            raise Exception(f'No csv files in {path}')
+        else:
+            return fnames[0]
+
+    def create_fname(self):
         '''Defines the name of a receptor file based on the datetime range 
         
         Returns:
         fname (str) : filename based on the date and datetime range of the class
         '''
-
+        if self.dt1 is None:
+            raise Exception('You must initialize this class with dt1 and dt2 in order to create a new receptor file.')
         date = self.dt1.strftime('%Y%m%d') #grab the date of the dt1
         t1 = self.dt1.strftime('%H%M%S') #grab the start time
         t2 = self.dt2.strftime('%H%M%S') #grab the end time
         fname = f'{date}_{t1}_{t2}.csv' #define the filename as YYYYmmdd_HHMMSS_HHMMSS.csv
         return fname
     
+    #Below are used for creating receptor files
     def create_for_stilt(self):
+        '''The initialization of a receptor file to be used in stilt. Will overwrite anything with the self.full_filepath in favor of this call'''
+
         header = self.receptor_header()
         self.create_overwrite(header)
 
@@ -896,12 +933,12 @@ class StiltReceptors:
 
         sha = get_git_hash(self.configs.folder_paths['Atmos_Column_folder'])
         header_lines = [] #initialize the header lines
-        header_lines.append(f'Receptor file created using atmos_column.create_receptors, git hash: {sha}')
-        header_lines.append(f'Column type: {self.configs.column_type}') #like the column type
-        header_lines.append(f'Instrument Location: {self.configs.inst_lat}, {self.configs.inst_lon}, {self.configs.inst_zasl}masl')#the instrument info
-        header_lines.append(f"Created at: {datetime.datetime.now(tz=datetime.UTC)}") #when the code was run
-        header_lines.append(f"Data date1: {self.dt1.strftime('%Y%m%d')}") #the date of the data
-        header_lines.append(f"Datetime range: {self.dt1} to {self.dt2}") #and the range    
+        header_lines.append(f'Receptor file created using atmos_column.create_receptors, git hash:{sha}')
+        header_lines.append(f'Column type:{self.configs.column_type}') #like the column type
+        header_lines.append(f'Instrument Location:{self.configs.inst_lat},{self.configs.inst_lon},{self.configs.inst_zasl}masl')#the instrument info
+        header_lines.append(f"Created at:{datetime.datetime.now(tz=datetime.UTC)}") #when the code was run
+        header_lines.append(f"Data date1:{self.dt1.strftime('%Y%m%d')}") #the date of the data
+        header_lines.append(f"Datetime range:{self.dt1},{self.dt2}") #and the range    
         header_lines.append('') #add a blank to get the last newline    
         header = '\n'.join(header_lines) #join the list on newlines
         return header
@@ -935,6 +972,58 @@ class StiltReceptors:
 
         df.to_csv(self.full_filepath,mode = 'a',index=index) #append the receptor dataframe to the created receptor csv with header. 
 
+    #Below are used for reading/loading receptor files
+    def load_receptors(self):
+        '''Main method for loading a receptor file and the associated metadata, and saving to this class'''
+
+        self.parse_rec_header() #parse the header and save the metadata to the calss
+        self.rec_df = self.read_rec_csv() #read the csv file in as a df and save it to the class as rec_df
+        self.split_dfs = self.split_recdf_bytime() #split the dfs into a list of dfs on time for easier usage
+
+    def parse_rec_header(self):
+        '''Read the header of the receptor file and store the data in the class'''
+
+        with open(self.full_filepath) as f: #open the file
+            header_lines = [] #initialize a list of the header lines
+            line = ' ' #make line a space to get into the while loop
+            while line != '': #the header should be followed by a blank line. stop after we read that
+                line = f.readline().strip() #read the line and strip the newline character
+                header_lines.append(line) #append the line to the header_lines list
+
+        for line in header_lines: #loop through the header lines
+            if line.split(':')[0] == 'Instrument Location': #ge the instrument location
+                inst_loc_vals = line.split(':')[-1]
+                self.inst_lat = float(inst_loc_vals.split(',')[0].strip())
+                self.inst_lon = float(inst_loc_vals.split(',')[1].strip())
+                self.inst_zasl = float(inst_loc_vals.split(',')[2].strip('masl'))
+            if line.split(':')[0] == 'Datetime range': #get the datetime range
+                inst_dt_vals = line.split('Datetime range:')[-1]
+                self.dt_range_strs = [inst_dt_vals.split(',')[0],inst_dt_vals.split(',')[1]]
+                self.dt1 = datetime.datetime.strptime(self.dt_range_strs[0],'%Y-%m-%d %H:%M:%S%z')
+                self.dt2 = datetime.datetime.strptime(self.dt_range_strs[1],'%Y-%m-%d %H:%M:%S%z')
+            if line.split(':')[0] == 'Data date':
+                self.data_datestr = line.split(':')[1].strip()
+
+    def read_rec_csv(self):
+        '''Reads the actual data in the receptor file to a pandas dataframe for later reference'''
+       
+        rec_df = pd.read_csv(self.full_filepath,header = 6)
+        rec_df['run_times'] = pd.to_datetime(rec_df['run_times'])
+        return rec_df   
+
+    def split_recdf_bytime(self):
+        '''Splits the receptor dataframe into a list of dataframes, with each having the same run_time (the vertical levels for that run_time)
+        
+        Returns:
+        split_dfs (list): list of dataframes, where each is a dataframe of a single run time representing the vertical levels
+        '''
+       
+        split_dfs = [] #initialize the timegrouped list
+        for name, group in self.rec_df.groupby('run_times'): #groupby runtime
+            sub_df = group.copy() #copy to avoid overwriting
+            split_dfs.append(sub_df) #append the df to the list
+
+        return split_dfs    
 
 def main():
     output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'
