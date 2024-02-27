@@ -28,3 +28,4 @@ dependencies:
   - pip:
     - simplekml
     - pylr2
+    - windrose
