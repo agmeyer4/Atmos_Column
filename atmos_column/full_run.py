@@ -34,11 +34,13 @@ def main():
 
     slurm = ac.SlurmHandler(configs) #create a slurm handler from the configs
     slurm.stilt_setup() #create a slurm submit.sh file 
+    
+    my_dem_handler = ac.DEM_handler(configs.folder_paths['dem_folder'],configs.dem_fname,configs.dem_typeid) #define the DEM
 
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
         rec_creator_inst = cr.receptor_creator(configs,dt_range['dt1'],dt_range['dt2']) #Create the receptor creator class
-        rec_creator_inst.create_receptors() #create the receptors
+        rec_creator_inst.create_receptors(my_dem_handler) #create the receptors
         stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2']) #create the stilt setup class
         stilt_setup_inst.full_setup() #do a full stilt setup
 
