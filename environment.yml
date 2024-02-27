@@ -22,6 +22,7 @@ dependencies:
   - netcdf4
   - cdo
   - python-cdo
+  - gitpython
   - pip
   - pip:
     - simplekml

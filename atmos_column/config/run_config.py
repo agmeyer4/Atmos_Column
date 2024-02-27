@@ -29,7 +29,7 @@ class run_config_obj:
         self.start_dt = self.dtstr_to_dttz(self.start_dt_str,self.timezone) #the json datetime is a string, so convert it to a datetime
         self.end_dt = self.dtstr_to_dttz(self.end_dt_str,self.timezone) #same for end datetime
         #self.folder_paths['hrrr_subset_path'] = os.path.join(self.folder_paths['hrrr_data_folder'],'subsets') #add the subset path for hrrr surface elevations
-        self.get_lat_lon_zasl() #get the lat/lon/zasl -- will be just the config if column type is not em27, if it is it will be taken from oof
+        #self.get_lat_lon_zasl() #get the lat/lon/zasl -- will be just the config if column type is not em27, if it is it will be taken from oof
         self.split_dt_ranges = self.get_split_dt_ranges() #split the datetimes into daily ranges
 
     def load_json(self):
