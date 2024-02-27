@@ -1,8 +1,8 @@
 {
-    "column_type" : "ground", 
+    "column_type" : "em27", 
     "interval" : "1h",
-    "start_dt_str" : "2023-07-11 10:00:00",
-    "end_dt_str" : "2023-07-12 04:00:00",
+    "start_dt_str" : "2023-07-07 00:00:00",
+    "end_dt_str" : "2023-08-16 00:00:00",
     "timezone" : "UTC", 
     "inst_lat" : 40.766,
     "inst_lon" : -111.847,
@@ -24,10 +24,10 @@
     "dem_typeid" : "aster",
     "slurm_options" : {
         "nodes" : 1,
-        "ntasks" : 28,
-        "partition" : "carbon-kp",
-        "account" : "carbon-kp",
-        "time" : "10:00:00"
+        "ntasks" : 16,
+        "partition" : "lin-kp",
+        "account" : "lin-kp",
+        "time" : "100:00:00"
     },
     "run_stilt_configs":{
         "met_path" : "'/uufs/chpc.utah.edu/common/home/lin-group12/hrrr/hrrr'",

@@ -439,7 +439,7 @@ class oof_manager:
         if cols_to_load == None: #if use_cols is none, we load all of the columns into the dataframe
             df = pd.read_csv(oof_full_filepath,
                             header = header,
-                            delim_whitespace=True,
+                            sep='\s+',
                             skip_blank_lines=False) #read it as a csv, parse the header
         else:
             must_have_cols = ['flag','year','day','hour','lat(deg)','long(deg)','zobs(km)'] #we basically always need these columns

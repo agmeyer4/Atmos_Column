@@ -36,16 +36,24 @@ def main():
     slurm.stilt_setup() #create a slurm submit.sh file 
     
     my_dem_handler = ac.DEM_handler(configs.folder_paths['dem_folder'],configs.dem_fname,configs.dem_typeid) #define the DEM
+    print('\n---------------------------------------------------------------\n') #ad a demarcation between dates
 
     for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
         rec_creator_inst = cr.receptor_creator(configs,dt_range['dt1'],dt_range['dt2']) #Create the receptor creator class
-        rec_creator_inst.create_receptors(my_dem_handler) #create the receptors
+        rec_creator_response = rec_creator_inst.create_receptors(my_dem_handler) #create the receptors
+        if rec_creator_response == -1: #this is a case where no oof files were found
+            print('No OOF files found for this dt range, going to next')
+            print('\n---------------------------------------------------------------\n') #ad a demarcation between dates
+            continue
         stilt_setup_inst = ss.stilt_setup(configs,dt_range['dt1'],dt_range['dt2']) #create the stilt setup class
         stilt_setup_inst.full_setup() #do a full stilt setup
 
+        print('Adding rscript to slurm submit script')
         slurm.add_stilt_run(stilt_setup_inst.stilt_name) #add this day's run to the slurm file
-    
+        
+        print('\n---------------------------------------------------------------\n') #ad a demarcation between dates
+
     #Ask if user wants to actually run the slurm file -- not automatic behavior. 
     userin = '' #initialize a userinput
     while (userin != 'y') & (userin != 'n'): #want it to be "y" or "n"

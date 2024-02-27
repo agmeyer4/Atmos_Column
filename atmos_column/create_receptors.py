@@ -41,9 +41,9 @@ class receptor_creator:
 
         print(f"Creating receptors and saving to {self.configs.folder_paths['output_folder']}")
         if self.configs.column_type == 'ground':
-            self.ground_rec_creator(my_dem_handler)
+            return self.ground_rec_creator(my_dem_handler)
         elif self.configs.column_type == 'em27':
-            self.em27_rec_creator(my_dem_handler)
+            return self.em27_rec_creator(my_dem_handler)
         else:
             raise Exception(f'Config column type = {self.configs.column_type} not recognized. Try a recognizable config.')
 
@@ -57,13 +57,12 @@ class receptor_creator:
 
         print(f'Column type is "em27". Slant columns will be created for datetimes with existing oof files')
         print(f'Instrument lat/lon/zasl will be taken from oof files')
-        print(f"Creating receptors for {len(self.configs.split_dt_ranges)} dates in range.")
 
         my_oof_manager = ac.oof_manager(self.configs.folder_paths['column_data_folder'],self.configs.timezone) #create the oof manager
         oof_df = my_oof_manager.load_oof_df_inrange(self.dt1,self.dt2) #load the oof data in the required range
         if len(oof_df) == 0: #if there isn't any oof data in that range
             print(f'No oof data for {self.dt1} to {self.dt2}') #tell us
-            return #and just return nothing 
+            return -1#and return a flag
         inst_lat,inst_lon,inst_zasl = my_oof_manager.check_get_loc(oof_df) #grab the instrument lat/lon/zasl from the oof dataframe and check to make sure it's the same
         gsh = ac.ground_slant_handler(inst_lat,inst_lon,inst_zasl,self.configs.z_ail_list) #create the slant handler   
         self.configs.inst_lat,self.configs.inst_lon,self.configs.inst_zasl = inst_lat,inst_lon,inst_zasl #add the inst location taken from oof to the config object
@@ -79,6 +78,7 @@ class receptor_creator:
         slant_df = gsh.run_slant_at_intervals(dt1_oof,dt2_oof,my_dem_handler,interval=self.configs.interval) #Get the slant column between the oof datetimes
         receptor_df = ac.slant_df_to_rec_df(slant_df) #transform it to a receptor dataframe style
         stilt_rec.append_df(receptor_df) #add the dataframe to the receptor file
+        return 0 #return success
 
 
     def ground_rec_creator(self,my_dem_handler):
@@ -100,7 +100,7 @@ class receptor_creator:
         slant_df = gsh.run_slant_at_intervals(self.dt1,self.dt2,my_dem_handler) #get the slant df
         receptor_df = ac.slant_df_to_rec_df(slant_df) #convert to a receptor style dataframe
         stilt_rec.append_df(receptor_df)
-
+        return 0 #return success
 
 def main():
     '''
