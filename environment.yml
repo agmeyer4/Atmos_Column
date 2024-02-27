@@ -23,6 +23,7 @@ dependencies:
   - cdo
   - python-cdo
   - gitpython
+  - pyarrow
   - pip
   - pip:
     - simplekml
