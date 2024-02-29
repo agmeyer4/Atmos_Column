@@ -1,14 +1,14 @@
 # Atmos_Column
 
-The Atmos_Column package is a python module for working with atmospheric "total column" or open path type measurments. Such instruments include ground based solar spectrometers, remote sounding satellites/aircraft, and open path type measurments. The module includes a wrapper for setting up and running STILT in the context of atmospheric column measurements.  ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)). Also available are a variety of methods for loading, comparing and visualizing data from EM27, TCCON, OCO2/3, TROPOMI, and inventory data. 
+The Atmos_Column package is a python module for working with atmospheric "total column" or open path type measurments. Such measurement instruments include ground based solar spectrometers, remote sounding satellites/aircraft, and open path measurments. The module includes a wrapper for setting up and running STILT in the context of atmospheric column measurements.  ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)). Also available are a variety of methods for loading, comparing and visualizing data from EM27, TCCON, OCO2/3, TROPOMI, and inventory data. 
 
 **The main branch should be stable, but there are some dangling features that may not work.** This current version allows users to do the following:
 
-- Calculate receptor positions for total column measurments on slant columns such as EM27/SUN spectrometers. This includes identifying "height above ground level" by pulling DEM data.
+- Calculate receptor positions for total column measurments on solar slant columns such as EM27/SUN spectrometers. This includes identifying "height above ground level" by pulling DEM data.
 - Create formatted receptor files compatible with running STILT backtrajectories, either for generic slant columns or clipping to EM27 data ranges by pulling from .oof files. 
 - Set up and configure the STILT runs by modifying the base "run_stilt.r" method in the STILT setup. 
 - Run STILT using SLURM job submission
-- Load, visualize, or manipulate useful datasets including:
+- Load, analyze, and visualize useful datasets including:
     - EM27 timeseries data
     - Meteorological data including MesoWest
     - Receptor details for STILT runs
@@ -21,7 +21,7 @@ The Atmos_Column package is a python module for working with atmospheric "total 
         - EDGAR CH4, CO2, CO
         - NOAA CSL *in progress*
     - KML file creation for Google Earth
-    - File creation for use in R's OpenAir package (https://davidcarslaw.github.io/openair/)
+    - File creation for use in R's OpenAir package
 
 Work in progress includes:
 
