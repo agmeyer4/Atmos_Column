@@ -2,7 +2,7 @@
 
 The Atmos_Column package is a python wrapper for handling atmospheric "column" measurements like solar spectrometers, aircraft, dual-comb, and satellite remote sensing for use in atmospheric transport models like STILT ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)). Also available are a variety of methods for loading, comparing and visualizing EM27, TCCON, OCO2/3, TROPOMI, 
 
-**This is an in progress version. I am actively developing and features, bugs, configurations, etc. may change quickly.** This current version allows users to do the following:
+**The main branch should be stable, but there are some dangling features that may not work.** This current version allows users to do the following:
 
 - Calculate receptor positions for total column measurments on slant columns such as EM27/SUN spectrometers. This includes identifying "height above ground level" by pulling DEM data.
 - Create formatted receptor files compatible with running STILT backtrajectories, either for generic slant columns or clipping to EM27 data ranges by pulling from .oof files. 
