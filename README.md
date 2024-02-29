@@ -1,6 +1,6 @@
 # Atmos_Column
 
-The Atmos_Column package is a python wrapper for handling atmospheric "column" measurements like solar spectrometers, aircraft, dual-comb, and satellite remote sensing for use in atmospheric transport models like STILT ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)). Also available are a variety of methods for loading, comparing and visualizing EM27, TCCON, OCO2/3, TROPOMI, 
+The Atmos_Column package is a python module for working with atmospheric "total column" or open path type measurments. Such instruments include ground based solar spectrometers, remote sounding satellites/aircraft, and open path type measurments. The module includes a wrapper for setting up and running STILT in the context of atmospheric column measurements.  ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)). Also available are a variety of methods for loading, comparing and visualizing data from EM27, TCCON, OCO2/3, TROPOMI, and inventory data. 
 
 **The main branch should be stable, but there are some dangling features that may not work.** This current version allows users to do the following:
 
@@ -27,7 +27,7 @@ Work in progress includes:
 
 - Applying pressure weighting functions and averaging kernels to produce accurate integrated total column footprints (from instruments such as EM27) from discrete receptor releases. 
 - Visualizing footprints in the context of EM27 collected data.
-- Adding functionality for open path (dual-comb) data. 
+- Adding functionality for open path data. 
 
 
 # Project Setup Instructions
@@ -48,7 +48,7 @@ Work in progress includes:
 │   └── STILT
 ```
 
-2. Create a conda environment from the yml file, then activate it. Ensure you are in the base git directory Atmos_Column. I much prefer using mamba to create, conda can get stuck. (https://mamba.readthedocs.io/en/latest/)
+2. Create a conda environment from the yml file, then activate it. Ensure you are in the base git directory Atmos_Column. I much prefer using mamba to create it, conda can get stuck. (https://mamba.readthedocs.io/en/latest/)
 ```
 > mamba env create -f environment.yml
 ```  
