@@ -25,6 +25,7 @@ dependencies:
   - gitpython
   - pyarrow
   - pip
+  - boto3
   - pip:
     - simplekml
     - pylr2
