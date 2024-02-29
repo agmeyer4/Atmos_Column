@@ -1,44 +1,64 @@
 # Atmos_Column
 
-The Atmos_Column package is a python wrapper for handling atmospheric "column" measurements like solar spectrometers, aircraft, and satellite remote sensing for use in atmospheric transport models like STILT ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)).
+The Atmos_Column package is a python wrapper for handling atmospheric "column" measurements like solar spectrometers, aircraft, dual-comb, and satellite remote sensing for use in atmospheric transport models like STILT ([Lin et al., 2003](https://doi.org/10.1029/2002JD003161), [Fasoli et al., 2018](https://doi.org/10.5194/gmd-11-2813-2018)). Also available are a variety of methods for loading, comparing and visualizing EM27, TCCON, OCO2/3, TROPOMI, 
 
 **This is an in progress version. I am actively developing and features, bugs, configurations, etc. may change quickly.** This current version allows users to do the following:
 
-- Calculate receptor positions for total column measurments on slant columns such as EM27/SUN spectrometers. This includes identifying "height above ground level" by pulling DEM data from HRRR files.
-- Create formatted receptor files compatible with running STILT backtrajectories, either for generic slant columns or EM27 data by pulling from .oof files. 
+- Calculate receptor positions for total column measurments on slant columns such as EM27/SUN spectrometers. This includes identifying "height above ground level" by pulling DEM data.
+- Create formatted receptor files compatible with running STILT backtrajectories, either for generic slant columns or clipping to EM27 data ranges by pulling from .oof files. 
 - Set up and configure the STILT runs by modifying the base "run_stilt.r" method in the STILT setup. 
-- Create basic figures for visualization. Current version has capabilities to interactively visualize EM27 time series data, interactive receptor mapping functions, and KML file creation for Google Earth implementation. 
+- Run STILT using SLURM job submission
+- Load, visualize, or manipulate useful datasets including:
+    - EM27 timeseries data
+    - Meteorological data including MesoWest
+    - Receptor details for STILT runs
+    - STILT output footprints
+    - Satellites 
+        - OCO2/3
+        - TROPOMI
+    - Emissions Inventories
+        - EPA (Maasakers) CH4
+        - EDGAR CH4, CO2, CO
+        - NOAA CSL *in progress*
+    - KML file creation for Google Earth
+    - File creation for use in R's OpenAir package (https://davidcarslaw.github.io/openair/)
 
 Work in progress includes:
 
 - Applying pressure weighting functions and averaging kernels to produce accurate integrated total column footprints (from instruments such as EM27) from discrete receptor releases. 
 - Visualizing footprints in the context of EM27 collected data.
-- Better setup for "full runs" and longer term analysis leveraging CHPC resources. 
-- Addressing nuances related to receptor elevations above ground level (some receptors can be "below" ground level based on an above instrument input height)
+- Adding functionality for open path (dual-comb) data. 
+
 
 # Project Setup Instructions
 
-1. Create a project folder to house this work. My setup is currently as follows. Create the project folder and clone the Atmos_Column git repo into the project folder. I also include a Data folder (such as EM27_oof, and suface level HRRR data), and a STILT folder (within which the STILT generated repo will go) to house items I want outside the git folder.
+1. Create a project folder to house this work. My setup is currently as follows. Create the project folder and clone this Atmos_Column git repo into the project folder. I also include a Data folder (such as EM27_oof, and suface DEM data), and a STILT folder (within which the STILT generated repo will go) to house items I want outside the git folder.
 
 ```
-├── project_folder
+├── base_project_folder
 │   ├── Atmos_Column (this git repo)
 │   │   ├── atmos_column
 │   │   ├── environment.yml
 │   │   ├── output
+│   │   ├── slurm
 │   │   └── README.md
 │   ├── Data
-│   │   ├── EM27_oof
-│   │   └── HRRR
+│   │   ├── DEM
+│   │   └── EM27_oof
 │   └── STILT
 ```
 
-2. Create a conda environment from the yml file, then activate it. Ensure you are in the base git directory Atmos_Column.   
+2. Create a conda environment from the yml file, then activate it. Ensure you are in the base git directory Atmos_Column. I much prefer using mamba to create, conda can get stuck. (https://mamba.readthedocs.io/en/latest/)
+```
+> mamba env create -f environment.yml
+```  
+or 
 ```
 > conda env create -f environment.yml
-```  
 ```
-> conda activate atmos_column
+then
+```
+> conda activate atmos_column1
 ```
 
 3. If you plan on running STILT through this python wrapper, ensure that your R environment is properly configured. More information can be found in the [STILT docs](https://uataq.github.io/stilt/#/). Your configuration will need to be able to successfully run 
@@ -48,9 +68,9 @@ Work in progress includes:
 
 # Creating receptors and configuring for STILT
 
-1. Edit or create a new input_config.json file in atmos_column/configs. These settings will drive the runs. See atmos_column/configs/input_config_description.txt for more information. 
+1. Edit or create a new input_config.json file in atmos_column/configs. These settings will drive the runs. See atmos_column/configs/input_config_description.txt for more information. The code will automatically look for config files in the folder described. 
 
-2. To do a "full run" (up to the point I have developed), cd into atmos_column, check that your input config file is correctly named in the full_run.py main() function, and run:
+2. To do a "full run", cd into atmos_column, check that your input config file is correctly named in the full_run.py main() function, and run the code below. **Note: default behavior for full_run.py is to split the datetime range into individual days, and run STILT on each day. This makes it easier to manage, rerun, and reconfigure data, rather than having one STILT project run the whole datetime range.**
 ```
 > python full_run.py
 ``` 
