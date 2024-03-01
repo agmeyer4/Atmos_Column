@@ -450,7 +450,7 @@ class oof_manager:
 
             df = pd.read_csv(oof_full_filepath, #now load the dataframe with the specific columns defined
                 header = header,
-                delim_whitespace=True,
+                sep='\s+',
                 skip_blank_lines=False,
                 usecols = usecols) #read it as a csv, parse the header
                 
