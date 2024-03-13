@@ -17,3 +17,11 @@ polarPlot(df,pollutant = 'corrected_xch4.ppm.',
 
 
 
+df<-read.csv('/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/csv_for_r/ratios_v2/ha_202205_202311_5T_ch4_co2.csv')
+
+polarPlot(df,pollutant = 'ch4_co2_slope',
+          statistic = 'percentile',percentile = 95,cols = 'viridis',par.settings=list(fontsize=list(text=25)))
+
+
+
+
