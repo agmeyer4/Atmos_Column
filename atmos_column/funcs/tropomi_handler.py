@@ -62,8 +62,8 @@ def lambda_handler(event):
     }
 
 event = {'s3_endpoint':'https://data.gesdisc.earthdata.nasa.gov/s3credentials',
-         'edl_username':'agmeyer4',
-         'edl_password':'Mister_zit0',
+         'edl_username':'x',
+         'edl_password':'x',
          'bucket_name':'gesdisc-cumulus-prod-protected',
          'prefix':"S5P_TROPOMI_Level2/S5P_L2__CH4____HiR.2/"}
 
