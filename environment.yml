@@ -26,6 +26,7 @@ dependencies:
   - pyarrow
   - pip
   - boto3
+  - dask
   - pip:
     - simplekml
     - pylr2

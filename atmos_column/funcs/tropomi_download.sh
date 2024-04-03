@@ -104,6 +104,7 @@ fetch_urls() {
         setup_auth_curl
         for line in "${urls[@]}"; do  # Loop through the array of URLs
             filename="${line##*/}"
+            echo $filename
             stripped_query_params="${filename%%\?*}"
 
             curl -f -b "$cookiejar" -c "$cookiejar" -L --netrc-file "$netrc" -g -o "$stripped_query_params" -- "$line" || exit_with_error "Command failed with error. Please retrieve the data manually."
