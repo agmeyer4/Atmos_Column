@@ -1141,6 +1141,9 @@ class met_loader_ggg:
         Returns:
         full_dataframe (pandas.DataFrame) : a dataframe of all of the met data in the range, with a datetime index wind columns corrected
         '''
+        if not dt1.tzinfo == pytz.utc: #the ggg data is stored in UTC, so convert to utc if the input dts are not in that timezone
+            dt1 = dt1.astimezone(pytz.utc)
+            dt2 = dt2.astimezone(pytz.utc)
 
         files_in_range = self.get_files_inrange(dt1,dt2) #get the files that are in the range 
         full_dataframe = pd.DataFrame() #initialize the full dataframe
