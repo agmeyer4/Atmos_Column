@@ -28,7 +28,7 @@ from config import run_config, structure_check
 import funcs.ac_funcs as ac
 
 def main():
-    config_json_fname = 'input_config_fulltest.json'
+    config_json_fname = 'input_config_minitest.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
     structure_check.directory_checker(configs,run=True) #check the structure
 
