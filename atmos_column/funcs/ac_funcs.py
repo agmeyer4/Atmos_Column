@@ -15,10 +15,10 @@ import itertools
 import shutil
 import subprocess
 import pytz
-import git
+#import git
 import string
 import re
-from pylr2 import regress2
+#from pylr2 import regress2
 import pysolar.solar as solar
 from geographiclib.geodesic import Geodesic
 from herbie import Herbie
