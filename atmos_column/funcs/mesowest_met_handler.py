@@ -204,6 +204,7 @@ if __name__ == "__main__":
         output_folder = os.path.join(met_folder,station,'daily_txt_gggformat')
         print(f'Reformatting and saving daily dfs to {output_folder}')
         split_and_write_daily(filename,header_change,output_folder)
+        os.remove(filename)
 
 
     
