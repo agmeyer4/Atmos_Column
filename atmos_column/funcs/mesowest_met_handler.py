@@ -29,6 +29,7 @@ site -- this must be done manually for now. To use this module, follow the follo
 '''
 
 import os
+from urllib.request import urlretrieve
 import pandas as pd
 
 def split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=None):
@@ -66,7 +67,7 @@ def get_siteid(input_csv_fullpath):
     site_id (str) : the site id from the mesowest interface (like WBB)'''
 
     with open(input_csv_fullpath) as f: #open the file
-        for i in range(0,10): #go through the first few lines, should be on 1?
+        for i in range(0,15): #go through the first few lines, should be on 1?
             line = f.readline() #read the line
             if line.startswith('# STATION:'): #this is the indicator for the site id
                 site_id = line.split(' ')[-1].strip() #split on space and get the last element, then strip the newline
@@ -87,7 +88,7 @@ def get_is_utc(input_csv_fullpath):
     with open(input_csv_fullpath) as f:
         for i in range(0,10):#the data startss on the 10th line, so read up to there instead of reading in the whole thing
             line = f.readline()
-        if 'UTC' not in line: # The timezone (should be UTC) appears in each data line. If UTC is not in the line, it is in a different timezone
+        if ('UTC' not in line)&('Z' not in line): # The timezone (should be UTC) appears in each data line. If UTC is not in the line, it is in a different timezone
             return False
         else:
             return True
@@ -177,22 +178,45 @@ def write_to_txt(folder_path,filename,df):
 
 if __name__ == "__main__":
     #This is the main function call. Edit the variable values appropriately. 
-    #input_csv_fullpath = '/uufs/chpc.utah.edu/common/home/u0890904/Downloads/WBB_1.csv'
-    output_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/met/wbb/daily_txt_gggformat'
+    met_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/met'
     header_change = {'Date_Time':'dt',
                     'pressure_set_1':'Pout',
                     'air_temp_set_1':'Tout',
                     'relative_humidity_set_1':'RH',
                     'wind_speed_set_1':'WSPD',
                     'wind_direction_set_1':'WDIR'}
-    instrument_tag = 'HA'
+
+    #Synoptic
+    synoptic_token = 'db6cbde15d074a6aaccd366c413f0a65'
+    stations = ['UUSYR','WBB']
+    variables = ['air_temp','relative_humidity','wind_speed','wind_direction','pressure']  
+    outputformat = 'csv'
+    APIstart = '202407190000'
+    APIend = '202407302300'
+    timezone = 'UTC'
+
+    for station in stations:
+        print(f'Downloading {station} data')
+        url = 'https://api.synopticdata.com/v2/stations/timeseries?&token='+synoptic_token+'&start='+APIstart+'&end='+APIend+'&output='+outputformat+'&obtimezone='+timezone+'&stid='+station
+        filename = f'../temp/{station}.csv'
+        urlretrieve(url, filename)
+        print("Saved", filename, os.path.getsize(filename)/1000., 'KB')
+        output_folder = os.path.join(met_folder,station,'daily_txt_gggformat')
+        print(f'Reformatting and saving daily dfs to {output_folder}')
+        split_and_write_daily(filename,header_change,output_folder)
+
+
     
-    for fname in os.listdir('/uufs/chpc.utah.edu/common/home/u0890904/Downloads/'):
-        if fname.startswith('WBB'):
-            input_csv_fullpath = os.path.join('/uufs/chpc.utah.edu/common/home/u0890904/Downloads/',fname)
-            split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
-        else:
-            continue
+    #below is for using monthly downloaded from mesowest
+    #output_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/met/wbb/daily_txt_gggformat'
+    #instrument_tag = 'HA'
+
+    # for fname in os.listdir('/uufs/chpc.utah.edu/common/home/u0890904/Downloads/'):
+    #     if fname.startswith('WBB'):
+    #         input_csv_fullpath = os.path.join('/uufs/chpc.utah.edu/common/home/u0890904/Downloads/',fname)
+    #         split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
+    #     else:
+    #         continue
 
     #split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
 
