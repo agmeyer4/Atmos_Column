@@ -50,6 +50,7 @@ def split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrum
     print(f'Load the full dataframe for {input_csv_fullpath}')
     full_df = load_transform_fullmonth(input_csv_fullpath,header_change) #load the entire month into a dataframe
     full_df = wind_na_replace(full_df) #replace the wind NA's for use in GGG. See function for more details. 
+    full_df = full_df.fillna(-99)
     daily_data = split_into_daydfs(full_df,site_id,instrument_tag = instrument_tag) #split into days
     for data in daily_data: #run through the days
         filename = data[0]
@@ -139,7 +140,7 @@ def split_into_daydfs(full_df,site_id,instrument_tag):
         daily_data.append([day_label,day_df]) #append the label and df to the list 
     return daily_data
 
-def wind_na_replace(df,ws_colname = 'WSPD',wd_colname = 'WDIR',replace_with = 0.0,add_na_indicator_col=True):
+def wind_na_replace(df,ws_colname = 'WSPD',wd_colname = 'WDIR',replace_with = -99,add_na_indicator_col=True):
     '''Replaces na values in windspeed and wind dir columns. 
     
     EGI's metmatch fails when there are NA values in any of the met variables, including wind, which is not critical to the retrieval. So we replace
@@ -151,7 +152,7 @@ def wind_na_replace(df,ws_colname = 'WSPD',wd_colname = 'WDIR',replace_with = 0.
     df (pandas.DataFrame) : dataframe with wind speed and direction columns
     ws_colname (str) : name of the windspeed column. Default "WSPD" to match EGI/GGG met data format
     wd_colname (str) : name of the wind direction column. Default "WDIR" to match EGI/GGG met data format
-    replace_with (str, float, int) : what will replace "NA" in a wind column. Default 0.0 
+    replace_with (str, float, int) : what will replace "NA" in a wind column. Default -99
     add_na_indicator_col (bool) : if true, will add a boolean column called "wind_na" that is true if wind speed is NA and false if not. 
     
     Returns:
