@@ -110,6 +110,8 @@ def load_transform_fullmonth(input_csv_fullpath,header_change):
     full_df['Pout'] = full_df['Pout']/100 #convert from Pa to hPa
     full_df['dt'] = pd.to_datetime(full_df['dt']) #get the datetime from the dtstring column
     full_df = full_df.set_index('dt') #set the dt as the index for easy grouping later
+    if full_df.index[1]-full_df.index[0] > pd.Timedelta(minutes=2): #for ggg txt format, need minut data
+        full_df = full_df.resample('1min').bfill()     #so backfill it 
     full_df['UTCDate'] = full_df.index.strftime('%y/%m/%d') #add a UTCDate column from the dt index
     full_df['UTCTime'] = full_df.index.strftime('%H:%M:%S') #add a UTCTime column from the dt index
     keep_cols = ['UTCDate','UTCTime'] + list(header_change.values()) #these are the columns we want to keep (utc date, time, and the new headers)
