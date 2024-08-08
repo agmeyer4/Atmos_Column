@@ -4,9 +4,15 @@ Author: Aaron G. Meyer
 Email: agmeyer4@gmail.com
 
 This module is for formatting mesowest met data into a format that is ingestable by GGG by splitting a monthly mesowest
-csv file into daily met files of the correct form and format. It does not include any "data grabbing" from the mesowest 
-site -- this must be done manually for now. To use this module, follow the following steps:
+csv file into daily met files of the correct form and format. 
 
+#With synoptic
+1. Ensure you have a synoptic token and have a file containing it in a local directory
+2. Change the parameters in the beginning of the main function to suit your system
+3. Run < python mesowest_met_handler.py >
+4. Daily files will be deposited in the specified output_folder/station_name/daily_txt_gggformat to conform with GGG requirements. 
+
+##Old way without synoptic (still works)
 1. Login to mymesowest (https://mesowest.utah.edu/cgi-bin/droman/my_mesowest.cgi)
 2. Go to the main site (https://mesowest.utah.edu/). At left, under "station search", select site id from the 
    dropdown. In the seach box, enter the site id you want (for U of U, search 'wbb'). 
@@ -179,9 +185,22 @@ def write_to_txt(folder_path,filename,df):
     fullpath = os.path.join(folder_path,filename) #get the full path of the file to be written, in the correct folder
     df.to_csv(fullpath,index=False) #write it to csv
 
+def read_single_token(token_path):
+    '''Reads a file containing a single string
+    
+    Args:
+    token_path (str) : path to the token file
+    
+    Returns:
+    (str) : the string from the file
+    '''
+
+    with open(token_path,'r') as f:
+        return f.readline().strip()
+
 if __name__ == "__main__":
     #This is the main function call. Edit the variable values appropriately. 
-    met_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/met'
+    output_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/met'
     header_change = {'Date_Time':'dt',
                     'pressure_set_1':'Pout',
                     'air_temp_set_1':'Tout',
@@ -190,30 +209,31 @@ if __name__ == "__main__":
                     'wind_direction_set_1':'WDIR'}
 
     #Synoptic
-    synoptic_token = 'db6cbde15d074a6aaccd366c413f0a65'
+    synoptic_token_path = '/uufs/chpc.utah.edu/common/home/u0890904/tokens/synoptic_token.txt'
+    synoptic_token = read_single_token(synoptic_token_path)
     stations = ['UUSYR','WBB']
     variables = ['air_temp','relative_humidity','wind_speed','wind_direction','pressure']  
     outputformat = 'csv'
     APIstart = '202407190000'
-    APIend = '202407302300'
+    APIend = '202408080000'
     timezone = 'UTC'
 
     for station in stations:
         print(f'Downloading {station} data')
         url = 'https://api.synopticdata.com/v2/stations/timeseries?&token='+synoptic_token+'&start='+APIstart+'&end='+APIend+'&output='+outputformat+'&obtimezone='+timezone+'&stid='+station
-        filename = f'../temp/{station}.csv'
+        filename = f'../temp/{station}.{outputformat}'
         urlretrieve(url, filename)
         print("Saved", filename, os.path.getsize(filename)/1000., 'KB')
-        output_folder = os.path.join(met_folder,station,'daily_txt_gggformat')
-        print(f'Reformatting and saving daily dfs to {output_folder}')
-        split_and_write_daily(filename,header_change,output_folder)
+        output_subfolder = os.path.join(output_folder,station,'daily_txt_gggformat')
+        print(f'Reformatting and saving daily dfs to {output_subfolder}')
+        split_and_write_daily(filename,header_change,output_subfolder)
         os.remove(filename)
 
 
     
-    #below is for using monthly downloaded from mesowest
-    #output_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/met/wbb/daily_txt_gggformat'
-    #instrument_tag = 'HA'
+    # below is for using monthly downloaded from mesowest
+    # output_folder = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/met/wbb/daily_txt_gggformat'
+    # instrument_tag = 'HA'
 
     # for fname in os.listdir('/uufs/chpc.utah.edu/common/home/u0890904/Downloads/'):
     #     if fname.startswith('WBB'):
@@ -222,5 +242,5 @@ if __name__ == "__main__":
     #     else:
     #         continue
 
-    #split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
+    # split_and_write_daily(input_csv_fullpath,header_change,output_folder,instrument_tag=instrument_tag)
 
