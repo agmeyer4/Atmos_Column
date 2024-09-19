@@ -50,11 +50,11 @@ def load_vaisala_tph(fullpath_name):
         'RH':rhs
     })
 
-    nacol = ['WSPD','WDIR','SigTheta','Gust','Sflux','Precip','LeafWet','Bit','Battery']
+    nacol = ['WSPD','WDIR']
     for col in nacol:
         df[col]=np.nan
 
-    df = df[['UTCDate','UTCTime','WSPD','WDIR','SigTheta','Gust','Tout','RH','Pout','Sflux','Precip','LeafWet','Bit','Battery']]
+    df = df[['UTCDate','UTCTime','Tout','RH','Pout','WSPD','WDIR']]
     return df
 
 if __name__ == "__main__":
@@ -72,4 +72,4 @@ if __name__ == "__main__":
         loaded_df = load_vaisala_tph(fullpath_name)
         out_fname = f'{fname.split(".")[0]}_fix.txt'
         out_fullpath_name = os.path.join(out_folder,out_fname)
-        loaded_df.to_csv(out_fullpath_name,na_rep='0',index=False)
+        loaded_df.to_csv(out_fullpath_name,na_rep='-99',index=False)
