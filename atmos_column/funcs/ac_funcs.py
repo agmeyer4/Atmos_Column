@@ -379,6 +379,41 @@ def get_stilt_ncfiles(output_dir):
         # try:
         #     print(f"{id}: {os.path.join(by_id_fulldir,id)/}")
 
+def find_sbs_ranges(inst_details,inst_id1,inst_id2):
+    inst_det_list1 = inst_details[inst_id1]
+    inst_det_list2 = inst_details[inst_id2]
+    sbs_details = {}
+    for inst_det1 in inst_det_list1:
+        for inst_det2 in inst_det_list2:
+            if inst_det1['site'] == inst_det2['site']:
+                site = inst_det1['site']
+            else:
+                continue
+            dtr1 = inst_det1['dtr']
+            dtr2 = inst_det2['dtr']
+            sbs_dtr = dtr1.intersection(dtr2)
+            if sbs_dtr is not None:
+                try:
+                    sbs_details[site].append(sbs_dtr)
+                except KeyError:
+                    sbs_details[site] = [sbs_dtr]
+            
+    return sbs_details
+
+def find_sbs_ranges_inrange(inst_details,inst_id1,inst_id2,dtrange):
+    sbs_details = find_sbs_ranges(inst_details,inst_id1,inst_id2)
+    sub_site_details = {}
+    for site in sbs_details.keys():
+        for sbs_dtr in sbs_details[site]:
+            intersection = sbs_dtr.intersection(dtrange)
+            if intersection is not None:
+                try:
+                    sub_site_details[site].append(intersection)
+                except KeyError:
+                    sub_site_details[site] = [intersection]
+
+    return sub_site_details
+
 class oof_manager:
     '''Class to manage getting data from oof files'''
 
