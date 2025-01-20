@@ -762,6 +762,9 @@ class ground_slant_handler:
 
         print('Adding surface height and receptor elevation above ground level')
         multi_df = add_sh_and_agl(multi_df,my_dem_handler) #Add the receptor surface heights and elevations above ground level
+        
+        if len(multi_df.dropna()) == 0:
+            raise Exception('No receptors in the slant column. This often happens when the defined DEM doesnt actually cover the location of interest. Check the fname of the dem.')
 
         return multi_df
 
