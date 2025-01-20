@@ -12,8 +12,10 @@ import os
 from config import run_config, structure_check
 import subprocess
 import datetime
+import pandas as pd
 import shutil
 import sys
+import herbie
 
 class stilt_setup:
     '''This class sets up a STILT run based on the configs and datetime inputs'''
@@ -66,6 +68,9 @@ class stilt_setup:
             raise Exception('No receptor files found matching column type in date range') #raise an exception
         self.rewrite_run_stilt(receptor_fnames) #rewrite the run_stilt.r file with the correct configs and receptors
         self.move_new_runstilt() #move the newly rewritten run_stilt file to the STILT project directory 
+        if self.configs.download_met == 'T':
+            mg = MetGetter(self.configs,self.dt1,self.dt2)
+            mg.download_hrrr()
 
     def get_what_to_do(self,response):
         if response == -1:
@@ -245,41 +250,46 @@ class stilt_setup:
         response = subprocess.call(['Rscript','-e', uataq_command]) #this is the official stilt init command
         return response
 
-class met_handler:
+class MetGetter:
     '''A class to handle getting the met data for running STILT 
-    
-    This is on hold and TODO
-    
+        
     '''
 
-    def __init__(self,configs,dt1,dt2,n_hours):
+    def __init__(self,configs,dt1,dt2):
         self.configs = configs
         self.dt1 = dt1
         self.dt2 = dt2
-        self.n_hours = n_hours
 
-    def get_met(self):
-        #This doesn't work yet because I can just use the HRRR files on our CHPC system. Need to figure out how to download for sharable use
-        dts = self.get_dt_str_list()
-        for dt in dts:
-            pass
-        met_path = "'{}'".format(os.path.join(self.configs.folder_paths['hrrr_data_folder'],self.configs.met_model_type))
-        met_file_format = f"'%Y%m%d/hrrr.t%H*'"
-        return {'met_path':met_path,'met_file_format':met_file_format}
-        
-    def get_dt_str_list(self):
-        dt_str_format = '%Y-%m-%d %H:%M'
-        dts = []
-        dt = self.dt1 + datetime.timedelta(hours=self.n_hours)
-        while dt <= self.dt2:
-            dts.append(dt.strftime(dt_str_format))
-            dt = dt + datetime.timedelta(hours=1)
-        return dts
+    def get_dtrange_met(self,interval='1h'):
+        """Gets the datetime range needed for the met files based on the input and configs"""
+        n_hours = self.configs.run_stilt_configs['n_hours'] 
+        tdelt_before = datetime.timedelta(hours=n_hours)
+        tdelt_interval = pd.to_timedelta(interval)
+        dt1_met = self.dt1 + tdelt_before - tdelt_interval
+        dt2_met = self.dt2 + tdelt_interval
+        dtrange_met = pd.date_range(start=dt1_met.replace(tzinfo=None),end=dt2_met.replace(tzinfo=None),freq=interval)
+        return dtrange_met
+
+    def download_hrrr(self,fastherbie_kwargs={}):
+        '''Downloads the HRRR met data for the datetime range needed for the STILT run'''
+        dtrange_met = self.get_dtrange_met()
+        print(f'Downloading HRRR met data for {dtrange_met[0]} to {dtrange_met[-1]} to {self.configs.folder_paths["met_folder"]}')
+
+        fh = herbie.FastHerbie(
+            dtrange_met,
+            model='hrrr',
+            product='prs',
+            fxx=[0],
+            save_dir=self.configs.folder_paths['met_folder'],
+            **fastherbie_kwargs
+        )
+        fh.download()
 
 def main():
     '''This main function will setup the stilt project using the configuration file'''
 
-    config_json_fname = 'input_config_fulltest.json'
+    config_json_fname = 'input_config_minitest.json'
+
     configs = run_config.run_config_obj(config_json_fname=config_json_fname)
     structure_check.directory_checker(configs,run=True)
 

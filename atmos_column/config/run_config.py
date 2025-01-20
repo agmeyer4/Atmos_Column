@@ -32,7 +32,25 @@ class run_config_obj:
         #self.folder_paths['hrrr_subset_path'] = os.path.join(self.folder_paths['hrrr_data_folder'],'subsets') #add the subset path for hrrr surface elevations
         #self.get_lat_lon_zasl() #get the lat/lon/zasl -- will be just the config if column type is not em27, if it is it will be taken from oof
         self.split_dt_ranges = self.get_split_dt_ranges() #split the datetimes into daily ranges
+        self.adjust_met() #adjust the met data to the correct format for the run
 
+    def adjust_met(self):
+        '''Adjusts the met data to the correct format for the run'''
+        if self.download_met == 'T':
+            if self.folder_paths['met_folder'] == "stilt_parent":
+                stilt_parent = os.path.split(self.folder_paths['stilt_folder'])[0]
+                met_folder = os.path.join(stilt_parent,'met')
+                if not os.path.exists(met_folder):
+                    os.makedirs(met_folder)
+                self.folder_paths['met_folder'] = met_folder
+                self.run_stilt_configs['met_path'] = f"'{met_folder}'"
+            elif not os.path.exists(self.folder_paths['met_folder']):
+                raise ValueError('Error: met folder does not exist for the download and is not stilt_parent which can be automatically created')
+            if self.met_model_type == 'hrrr':
+                met_file_format = "'hrrr/%Y%m%d/hrrr.t%Hz'"
+                self.run_stilt_configs['met_file_format'] = met_file_format
+
+            
     def load_json(self):
         '''Loads the json from the json filepath'''
 
@@ -87,7 +105,7 @@ class run_config_obj:
         return split_dt_list
 
 def main():
-    configs = run_config_obj('input_config.json')
+    configs = run_config_obj(config_json_fname='input_config_minitest.json')
     print(configs.__dict__)
 
 if __name__=='__main__':
