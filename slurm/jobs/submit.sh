@@ -10,7 +10,7 @@ SECONDS=0
 echo "
 -----------------------------
 "
-echo "Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3/20241108/r/ac_run_stilt.r"
-Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3/20241108/r/ac_run_stilt.r
+echo "Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/bfly/20241108/r/ac_run_stilt.r"
+Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/bfly/20241108/r/ac_run_stilt.r
 echo "Time since last = $SECONDS seconds"
 SECONDS=0

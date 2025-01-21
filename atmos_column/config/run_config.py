@@ -46,10 +46,6 @@ class run_config_obj:
                 self.run_stilt_configs['met_path'] = f"'{met_folder}'"
             elif not os.path.exists(self.folder_paths['met_folder']):
                 raise ValueError('Error: met folder does not exist for the download and is not stilt_parent which can be automatically created')
-            if self.met_model_type == 'hrrr':
-                met_file_format = "'hrrr/%Y%m%d/hrrr.t%Hz'"
-                self.run_stilt_configs['met_file_format'] = met_file_format
-
             
     def load_json(self):
         '''Loads the json from the json filepath'''

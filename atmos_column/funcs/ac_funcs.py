@@ -12,6 +12,7 @@ import numpy as np
 import os
 import datetime
 import itertools
+from ftplib import FTP
 import shutil
 import subprocess
 import pytz
@@ -764,7 +765,9 @@ class ground_slant_handler:
         multi_df = add_sh_and_agl(multi_df,my_dem_handler) #Add the receptor surface heights and elevations above ground level
         
         if len(multi_df.dropna()) == 0:
-            raise Exception('No receptors in the slant column. This often happens when the defined DEM doesnt actually cover the location of interest. Check the fname of the dem.')
+            print('There are no receptors in the slant column. This often happens when (1) the time range defined in the config does not include any "sunlight" hours, or (2)\
+                  the defined DEM does not cover the region of interest. Check the time range and the DEM fname in the input configs file.')
+            raise Exception('No receptors in the slant column.')
 
         return multi_df
 
@@ -1411,7 +1414,99 @@ class met_loader_trisonica:
         
         return sorted(os.listdir(self.daily_met_path))
 
+class HRRR_ARL_Getter:
+    """A class to handle getting the hrrr arl met data for running STILT 
         
+    """
+
+    def __init__(self,configs,dt1,dt2):
+        self.configs = configs
+        self.dt1 = dt1
+        self.dt2 = dt2
+        self.save_dir = self.configs.folder_paths['met_folder']
+        self.ftp = None
+
+    def get_hrrr_met(self):
+        """Gets the hrrr met files needed for the STILT run"""
+        print('Retrieving HRRR data from NOAA ARL')
+        self.setup_ftp()
+        dtrange_met = self.get_hrrr_dtrange()
+        hrrr_filelist = self.create_hrrr_filelist(dtrange_met)
+        tot_size = self.check_all_sizes(hrrr_filelist)
+        print(f'Downloading {len(hrrr_filelist)} files from {hrrr_filelist[0]} to {hrrr_filelist[-1]}')
+        print(f'Total size of files to download: {tot_size/1e9:.2f} GB\n***This may take a while***')
+        self.download_all_files(hrrr_filelist)
+        self.remove_ftp()
+
+    def setup_ftp(self):
+        """Setup the ftp connection and save it to self"""
+        ftp = FTP('ftp.arl.noaa.gov')
+        ftp.login('anonymous',self.configs.ftp_email)
+        ftp.cwd('archives/hrrr')
+        self.ftp = ftp
+
+    def get_hrrr_dtrange(self):
+        """Gets the datetime range needed for the hrrr met files based on the input and configs"""
+        n_hours = self.configs.run_stilt_configs['n_hours'] 
+        tdelt_before = datetime.timedelta(hours=n_hours)
+        
+        # Adjust dt1 and dt2 to the nearest 6-hour interval
+        dt1_adjusted = self.dt1 + tdelt_before
+        dt1_adjusted = dt1_adjusted.replace(hour=(dt1_adjusted.hour // 6) * 6, minute=0, second=0, microsecond=0)
+        
+        dt2_adjusted = self.dt2
+        dt2_adjusted = dt2_adjusted.replace(hour=((dt2_adjusted.hour // 6)) * 6 % 24, minute=0, second=0, microsecond=0)
+
+        # Generate the datetime range with a frequency of 6 hours
+        dtrange_met = pd.date_range(start=dt1_adjusted, end=dt2_adjusted, freq='6h')
+        return dtrange_met
+    
+    def create_hrrr_filelist(self,dtrange_met):
+        """Creates a list of hrrr files to download based on the datetime range"""
+        hrrr_filelist = []
+        for dt in dtrange_met:
+            start_hour = f'{datetime.datetime.strftime(dt,"%H")}'
+            end_hour = f'{datetime.datetime.strftime(dt + datetime.timedelta(hours=5),"%H")}'
+            hrrr_file = f'{datetime.datetime.strftime(dt,"%Y%m%d")}_{start_hour}-{end_hour}_hrrr'
+            if os.path.exists(os.path.join(self.save_dir,hrrr_file)):
+                print(f'{hrrr_file} already exists in {self.save_dir}, skipping')
+                continue
+            hrrr_filelist.append(hrrr_file)
+        return hrrr_filelist
+    
+    def check_single_fsize(self,fname):
+        """Checks the size of a single file"""
+        if not hasattr(self, 'ftp'):
+            raise ValueError('FTP connection not established')
+        self.ftp.sendcmd('TYPE i')
+        fsize = self.ftp.size(fname)
+        return fsize
+
+    def check_all_sizes(self,hrrr_filelist):
+        """Checks the size of all files in the filelist"""
+        tot_size = 0
+        for fname in hrrr_filelist:
+            fsize = self.check_single_fsize(fname)
+            tot_size += fsize
+        return tot_size
+
+    def download_hrrr_file(self,fname):
+        """Downloads a single file"""
+        print('Downloading ',fname)
+        if not hasattr(self, 'ftp'):
+            raise ValueError('FTP connection not established')
+        with open(f'{self.save_dir}/{fname}', 'wb') as f:
+            self.ftp.retrbinary(f'RETR {fname}', f.write)
+
+    def download_all_files(self,hrrr_filelist):
+        """Downloads all files in the filelist"""
+        for fname in hrrr_filelist:
+            self.download_hrrr_file(fname)
+
+    def remove_ftp(self):
+        """Closes the ftp connection and sets it to None"""
+        self.ftp.quit()
+        self.ftp = None
 
 def main():
     #output_dir = '/uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/STILT/stilt/out'

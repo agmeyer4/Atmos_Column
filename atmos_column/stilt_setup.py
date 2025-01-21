@@ -16,6 +16,7 @@ import pandas as pd
 import shutil
 import sys
 import herbie
+from funcs import ac_funcs as ac
 
 class stilt_setup:
     '''This class sets up a STILT run based on the configs and datetime inputs'''
@@ -69,8 +70,8 @@ class stilt_setup:
         self.rewrite_run_stilt(receptor_fnames) #rewrite the run_stilt.r file with the correct configs and receptors
         self.move_new_runstilt() #move the newly rewritten run_stilt file to the STILT project directory 
         if self.configs.download_met == 'T':
-            mg = MetGetter(self.configs,self.dt1,self.dt2)
-            mg.download_hrrr()
+            hrrr_getter = ac.HRRR_ARL_Getter(self.configs,self.dt1,self.dt2)
+            hrrr_getter.get_hrrr_met()
 
     def get_what_to_do(self,response):
         if response == -1:
@@ -249,41 +250,6 @@ class stilt_setup:
         uataq_command = f"uataq::stilt_init('{self.stilt_name}')" #write the uataq command to be joined with the subprocess call
         response = subprocess.call(['Rscript','-e', uataq_command]) #this is the official stilt init command
         return response
-
-class MetGetter:
-    '''A class to handle getting the met data for running STILT 
-        
-    '''
-
-    def __init__(self,configs,dt1,dt2):
-        self.configs = configs
-        self.dt1 = dt1
-        self.dt2 = dt2
-
-    def get_dtrange_met(self,interval='1h'):
-        """Gets the datetime range needed for the met files based on the input and configs"""
-        n_hours = self.configs.run_stilt_configs['n_hours'] 
-        tdelt_before = datetime.timedelta(hours=n_hours)
-        tdelt_interval = pd.to_timedelta(interval)
-        dt1_met = self.dt1 + tdelt_before - tdelt_interval
-        dt2_met = self.dt2 + tdelt_interval
-        dtrange_met = pd.date_range(start=dt1_met.replace(tzinfo=None),end=dt2_met.replace(tzinfo=None),freq=interval)
-        return dtrange_met
-
-    def download_hrrr(self,fastherbie_kwargs={}):
-        '''Downloads the HRRR met data for the datetime range needed for the STILT run'''
-        dtrange_met = self.get_dtrange_met()
-        print(f'Downloading HRRR met data for {dtrange_met[0]} to {dtrange_met[-1]} to {self.configs.folder_paths["met_folder"]}')
-
-        fh = herbie.FastHerbie(
-            dtrange_met,
-            model='hrrr',
-            product='prs',
-            fxx=[0],
-            save_dir=self.configs.folder_paths['met_folder'],
-            **fastherbie_kwargs
-        )
-        fh.download()
 
 def main():
     '''This main function will setup the stilt project using the configuration file'''
