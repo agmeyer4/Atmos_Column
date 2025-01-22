@@ -107,7 +107,7 @@ def main():
     Main run using <python create_receptors.py> will load the configs and create the receptors in 
     output/receptors/{column_type}/YYYYmmdd_HHMMSS_HHMMSS.csv for each day in the config range. 
     '''
-    config_json_fname = 'input_config_minitest.json'
+    config_json_fname = 'input_config_20230519.json'
     configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load the configs
     structure_check.directory_checker(configs,run=True) #check the structure
     my_dem_handler = ac.DEM_handler(configs.folder_paths['dem_folder'],configs.dem_fname,configs.dem_typeid)

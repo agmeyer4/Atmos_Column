@@ -46,7 +46,9 @@ class run_config_obj:
                 self.run_stilt_configs['met_path'] = f"'{met_folder}'"
             elif not os.path.exists(self.folder_paths['met_folder']):
                 raise ValueError('Error: met folder does not exist for the download and is not stilt_parent which can be automatically created')
-            
+        else:
+            self.folder_paths['met_folder'] =  self.run_stilt_configs['met_path'][1:-1] #had to put the path in quotes for the R script, so remove them here
+        
     def load_json(self):
         '''Loads the json from the json filepath'''
 

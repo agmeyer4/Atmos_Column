@@ -254,7 +254,7 @@ class stilt_setup:
 def main():
     '''This main function will setup the stilt project using the configuration file'''
 
-    config_json_fname = 'input_config_minitest.json'
+    config_json_fname = 'input_config_20230519.json'
 
     configs = run_config.run_config_obj(config_json_fname=config_json_fname)
     structure_check.directory_checker(configs,run=True)
