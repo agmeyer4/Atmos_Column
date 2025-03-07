@@ -19,7 +19,7 @@ import pytz
 import git
 import string
 import re
-from pylr2 import regress2
+#from pylr2 import regress2
 import pysolar.solar as solar
 from geographiclib.geodesic import Geodesic
 from herbie import Herbie
@@ -349,28 +349,28 @@ def merge_oofdfs(oof_dfs,dropna=False):
         merged_df = merged_df.dropna() #do it
     return merged_df
 
-def lin_regress_2(df,x_spec,y_spec):
-    '''Does a type II linear regression and returns the relevant details as a dictionary
+# def lin_regress_2(df,x_spec,y_spec):
+#     '''Does a type II linear regression and returns the relevant details as a dictionary
     
-    Args:
-    df (pd.DataFrame) : pandas dataframe containing the data on which we want to do the regression
-    x_spec (str) : name of the column in the df that is the "x" data for the regression
-    y_spec (str) : name of the column in the df that is the "y" data for the regression
+#     Args:
+#     df (pd.DataFrame) : pandas dataframe containing the data on which we want to do the regression
+#     x_spec (str) : name of the column in the df that is the "x" data for the regression
+#     y_spec (str) : name of the column in the df that is the "y" data for the regression
     
-    Returns:
-    reg_details (dict) : a dictionary containing details of the regression, including x and y lines, slope, intercept, and r2
-    '''
+#     Returns:
+#     reg_details (dict) : a dictionary containing details of the regression, including x and y lines, slope, intercept, and r2
+#     '''
 
-    regression = regress2(df[x_spec],df[y_spec]) #run the regression 
-    x_regr_line = np.linspace(df[x_spec].min(),df[x_spec].max(),10) #create the x line from min to max
-    y_regr_line = x_regr_line * regression['slope'] + regression['intercept']  #create the y regression line using the x min to max values
-    reg_details = dict(lm = regression,
-               x_regr_line = x_regr_line,
-               y_regr_line = y_regr_line,
-               slope = regression['slope'],
-               yint = regression['intercept'],
-               r2 = regression['r']**2) #create the details 
-    return reg_details 
+#     regression = regress2(df[x_spec],df[y_spec]) #run the regression 
+#     x_regr_line = np.linspace(df[x_spec].min(),df[x_spec].max(),10) #create the x line from min to max
+#     y_regr_line = x_regr_line * regression['slope'] + regression['intercept']  #create the y regression line using the x min to max values
+#     reg_details = dict(lm = regression,
+#                x_regr_line = x_regr_line,
+#                y_regr_line = y_regr_line,
+#                slope = regression['slope'],
+#                yint = regression['intercept'],
+#                r2 = regression['r']**2) #create the details 
+#     return reg_details 
 
 def get_stilt_ncfiles(output_dir):
     by_id_fulldir = os.path.join(output_dir,'by-id')

@@ -200,7 +200,7 @@ def read_single_token(token_path):
 
 if __name__ == "__main__":
     #This is the main function call. Edit the variable values appropriately. 
-    output_folder = '/uufs/chpc.utah.edu/common/home/lin-group9/agm/EM27/ua/inst_data/met'
+    output_folder = '/uufs/chpc.utah.edu/common/home/lin-group9/agm/EM27/ha/inst_data/met'
     header_change = {'Date_Time':'dt',
                     'pressure_set_1':'Pout',
                     'air_temp_set_1':'Tout',
@@ -211,11 +211,11 @@ if __name__ == "__main__":
     #Synoptic
     synoptic_token_path = '/uufs/chpc.utah.edu/common/home/u0890904/tokens/synoptic_token.txt'
     synoptic_token = read_single_token(synoptic_token_path)
-    stations = ['UUSYR']
+    stations = ['WBB']
     variables = ['air_temp','relative_humidity','wind_speed','wind_direction','pressure']  
     outputformat = 'csv'
-    APIstart = '202407010000'
-    APIend =   '202409080000'
+    APIstart = '202409090000'
+    APIend =   '202501310000'
     timezone = 'UTC'
 
     for station in stations:
