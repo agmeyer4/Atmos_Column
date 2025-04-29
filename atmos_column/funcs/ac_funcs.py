@@ -85,6 +85,31 @@ def uv_to_wdws(u,v):
         wd_met_ref = wd_met_ref-360
     return ws,wd_met_ref
 
+def uv_to_wswd(u,v):
+    '''Converts a u,v wind vector to meteorological wind speed and direction
+    Ref: http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv#:~:text=A%20positive%20u%20wind%20is,wind%20is%20from%20the%20north.
+
+    Args:
+    u (float) : u component of wind vector (positive u wind is from west)
+    v (float) : v component of wind vector (positiv v wind is from south)
+
+    Returns:
+    ws (float) : wind speed (magnitude of wind vector)
+    wd (float) : wind direction (in degrees, clockwise from north)
+    '''    
+    ws = np.sqrt(u**2+v**2) #wind speed is just the magnitude
+    if ws <0.01: #deal with very low winds -- wind direction undefined at low winds
+        wd = np.nan
+        return ws,wd
+    wd_math_ref = np.rad2deg(np.arctan2(v,u)) #get the wind direciton
+    wd_met_ref = 270-wd_math_ref #shift to meteorological reference
+
+    if wd_met_ref<0: #the above returns values between -180 and 180, so add 360 to negative values to get output between 0 and 360
+        wd_met_ref = wd_met_ref+360
+    elif wd_met_ref > 360:
+        wd_met_ref = wd_met_ref-360
+    return ws,wd_met_ref
+
 def slant_df_to_rec_df(df,lati_colname='receptor_lat',long_colname='receptor_lon',zagl_colname='receptor_zagl',run_times_colname='dt',rec_is_agl_colname='receptor_z_is_agl'):
     '''Converts a slant dataframe to the form required for a receptor dataframe, including the column names that can be read by r stilt
     
@@ -414,6 +439,41 @@ def find_sbs_ranges_inrange(inst_details,inst_id1,inst_id2,dtrange):
                     sub_site_details[site] = [intersection]
 
     return sub_site_details
+
+def get_surface_ak(ds,xgas_name):
+    """ Gets the surface averaging kernel for a given xgas from the xarray dataset (loaded from the ggg .nc file)
+    
+    Args:
+        ds (xarray.Dataset) : xarray dataset loaded from the ggg .nc file
+        xgas_name (str) : name of the gas to get the surface ak for, like 'co2(ppm)' or 'ch4(ppm)'
+
+    Returns:
+        surface_ak_interp (xarray.DataArray) : xarray DataArray of the surface ak for the given gas, interpolated to the slant column values
+    """
+    airmass = ds['o2_7885_am_o2']
+    xgas = ds[xgas_name]
+    slant_xgas = xgas * airmass
+
+    ak_surface = ds[f'ak_{xgas_name}'].isel(ak_altitude=0).values
+    surface_interpolated_values = []
+    slant_xgas_values = slant_xgas.values
+    ak_slant_xgas_bin = ds[f'ak_slant_{xgas_name}_bin'].values
+
+    for slant_value in slant_xgas_values:
+        interpolated_surface_ak = np.interp(
+            slant_value, #current slant value
+            ak_slant_xgas_bin, #bin centers
+            ak_surface, #ak values
+        )
+        surface_interpolated_values.append(interpolated_surface_ak)
+
+    surface_ak_interp = xr.DataArray(
+        surface_interpolated_values,
+        dims='time',
+        coords={'time':ds.time}
+    )
+
+    return surface_ak_interp
 
 class oof_manager:
     '''Class to manage getting data from oof files'''
