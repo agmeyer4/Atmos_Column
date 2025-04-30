@@ -475,6 +475,26 @@ def get_surface_ak(ds,xgas_name):
 
     return surface_ak_interp
 
+def add_rise_set(oof_df):
+    '''Adds a column to the dataframe indicating if the sun is rising or setting at that time
+    
+    Args:
+    oof_df (pd.DataFrame) : pandas dataframe of oof data, must have a column 'solzen(deg)' for the solar zenith angle
+    
+    Returns:
+    out_oof_df (pd.DataFrame) : the same input dataframe with a new column 'rise_set' added, indicating if the sun is rising or setting
+    '''
+    
+    out_oof_df = pd.DataFrame() #initialize the output dataframe
+    oof_day_dfs = [part for _, part in oof_df.groupby(pd.Grouper(freq='1D')) if not part.empty] #parse into a list of daily dataframes
+    for df in oof_day_dfs: #for each daily dataframe
+        min_sza_idx = df['solzen(deg)'].idxmin() #find the sun's peak (min sza)
+        df['rise_set'] = ['rise' if idx <= min_sza_idx else 'set' for idx in df.index] #add a column indicating if the sun is rising or setting (before or after peak)
+        out_oof_df = pd.concat([out_oof_df,df]) #concatenate the daily dataframes into one
+
+    return out_oof_df #return the concatenated dataframe
+
+
 class oof_manager:
     '''Class to manage getting data from oof files'''
 
