@@ -6,7 +6,9 @@ atmos_column package. Included are functions for loading and transforming oof da
 loading HRRR data for terrain information, and producing receptor files for running STILT
 '''
 
-#Import Necessary Modules
+###################################################################################################################################
+# Import Necessary Packages
+###################################################################################################################################
 import pandas as pd
 import numpy as np
 import os
@@ -19,13 +21,14 @@ import pytz
 import git
 import string
 import re
-#from pylr2 import regress2
 import pysolar.solar as solar
 from geographiclib.geodesic import Geodesic
 from herbie import Herbie
 import xarray as xr
 
-#Functions     
+###################################################################################################################################
+# Define Functions     
+###################################################################################################################################
 def get_git_hash(path = '.'):
     '''Gets the current git hash
     
@@ -374,29 +377,6 @@ def merge_oofdfs(oof_dfs,dropna=False):
         merged_df = merged_df.dropna() #do it
     return merged_df
 
-# def lin_regress_2(df,x_spec,y_spec):
-#     '''Does a type II linear regression and returns the relevant details as a dictionary
-    
-#     Args:
-#     df (pd.DataFrame) : pandas dataframe containing the data on which we want to do the regression
-#     x_spec (str) : name of the column in the df that is the "x" data for the regression
-#     y_spec (str) : name of the column in the df that is the "y" data for the regression
-    
-#     Returns:
-#     reg_details (dict) : a dictionary containing details of the regression, including x and y lines, slope, intercept, and r2
-#     '''
-
-#     regression = regress2(df[x_spec],df[y_spec]) #run the regression 
-#     x_regr_line = np.linspace(df[x_spec].min(),df[x_spec].max(),10) #create the x line from min to max
-#     y_regr_line = x_regr_line * regression['slope'] + regression['intercept']  #create the y regression line using the x min to max values
-#     reg_details = dict(lm = regression,
-#                x_regr_line = x_regr_line,
-#                y_regr_line = y_regr_line,
-#                slope = regression['slope'],
-#                yint = regression['intercept'],
-#                r2 = regression['r']**2) #create the details 
-#     return reg_details 
-
 def get_stilt_ncfiles(output_dir):
     by_id_fulldir = os.path.join(output_dir,'by-id')
     id_list = os.listdir(by_id_fulldir)
@@ -494,7 +474,122 @@ def add_rise_set(oof_df):
 
     return out_oof_df #return the concatenated dataframe
 
+def copy_em27_oofs_to_singlefolder(existing_results_path,oof_destination_path):
+    '''Copies oof files from the EM27 results path to a single directory
+    
+    Args:
+    existing_results_path (str) : path to the results folder. Within this folder should be a 'daily' and further date subfolders.
+    oof_destination_path (str) : path to the folder where the oof files will be copied
+    '''
 
+    files_to_transfer = []
+    daily_results_folder = os.path.join(existing_results_path,'daily') 
+    for datefolder in os.listdir(daily_results_folder):
+        for file in os.listdir(os.path.join(daily_results_folder,datefolder)):
+            if file.endswith('.vav.ada.aia.oof'):
+                full_filepath = os.path.join(daily_results_folder,datefolder,file)
+                files_to_transfer.append(full_filepath)
+    print('Copying Files')
+    for full_filepath in files_to_transfer:
+        shutil.copy(full_filepath,oof_destination_path)
+
+def div_by_ak(df,col_name,ak_col_name):
+    out_df = df.copy()
+    out_df[f'{col_name}_divak'] = out_df[col_name] / out_df[ak_col_name]
+    return out_df
+
+# Anomaly functions
+def create_binned_summary(df,ak_df,sza_bin_size,gases):
+    '''Creates a summary dataframe for binning values on sza for rising and setting sun. Used for getting "daily anomolies" per Wunch 2009
+    
+    Args:
+    df (pd.DataFrame): pandas dataframe containing EM27 data
+    sza_bin_size (int, float): size (in degrees) to make the solar zenith angle bins
+    gases (list): list of strings corresponding to the species wanted. takes the mean of each species for the corresponding "rise" or "set for the sza bin
+    
+    Returns:
+    binned_summary_df (pd.DataFrame): dataframe containing information about the sza binned data'''
+    bins = np.arange(0,90,sza_bin_size) #create the bins
+    df['sza_bin'] = pd.cut(df['solzen(deg)'],bins) #create a column in the dataframe indicating the bin that row belongs to
+    grouped = df.groupby(['sza_bin','rise_set']) #group by the bin as well as rise_set so that they are two separate entities
+    binned_summary = [] #initialize a list to store summary data
+    for name, group in grouped:
+        bin_dict = {} #initialize the binned group's data dict
+        bin_dict['tstart'] = group.index[0] #start time of the bin
+        bin_dict['tend'] = group.index[-1] #end time of the bin
+        bin_dict['tmid'] = bin_dict['tstart']+(bin_dict['tend']-bin_dict['tstart'])/2 #middle time of the bin (can be used for plotting)
+        bin_dict['sza_bin'] = name[0] #the sza bin itself
+        bin_dict['nobs'] = len(group) #how many observations in that bin
+        spec_bin_means = group.mean(numeric_only=True)[gases] #get the means of the species we want
+        bin_dict.update({gas:spec_bin_means[gas] for gas in gases}) #add the means to the bin_dict
+        bin_dict.update({f'{gas}_error':group.mean(numeric_only=True)[f'{gas}_error'] for gas in gases}) #add the std dev of the species to the bin_dict
+        bin_dict.update({f'{gas}_std':group.std(numeric_only=True)[f'{gas}'] for gas in gases}) #add the std dev of the species to the bin_dict
+        bin_dict['rise_set'] = name[1] #whether it is 'rise' or 'set'
+
+        # Filter the averaging kernel DataFrame for the time range of the bin
+        ak_filtered = ak_df[(ak_df.index >= bin_dict['tstart']) & (ak_df.index <= bin_dict['tend'])]
+        if not ak_filtered.empty:
+            for gas in gases:
+                ak_col = f'{gas}_surf_ak'
+                bin_dict[f'{gas}_surf_ak'] = ak_filtered[ak_col].mean()
+
+        binned_summary.append(bin_dict) #append that group's info to the summary list
+    binned_summary_df = pd.DataFrame(binned_summary)  #make the dataframe from the list of dicts
+    binned_summary_df['sza_mid'] = binned_summary_df.apply(lambda row:row['sza_bin'].mid,axis = 1)
+    return binned_summary_df
+
+def daily_anomaly_creator(binned_summary_df,gases,co2_thresh):
+    '''Create the daily anomoly
+    
+    Args:
+    binned_summary_df (pd.DataFrame): created using create_binned_summary, contains daily summary information
+    gases (list): list of the species names to use
+    
+    Returns:
+    anom_df (pd.DataFrame): dataframe of the daily anomolies
+    skipped_df (pd.DataFrame): dataframe containing information about bins that were skipped and why
+    '''
+
+    bin_grouped = binned_summary_df.groupby('sza_bin') #group by sza bin
+    #initialize the data lists
+    anom_list = []
+    skipped_list = []
+    for name,group in bin_grouped:
+        if len(group)>2: #make sure there's not more than two rows -- should just be one rise and one set for that sza bin
+            raise Exception('grouped df greater than 2 -- investigate') 
+        if not all(item in group['rise_set'].values for item in ['rise', 'set']): #check that exactly one rise and one set rows exist in the df
+            skipped_list.append(dict(skipmode = 'no_match_sza', #document if so
+                                        sza_bin = name,
+                                        rise_set = group['rise_set'].unique()))
+            continue #if there aren't a rise and set, we can't do the anomoly, so just go to the next grouping
+        if (group['nobs'].max()>(2*group['nobs'].min())): #check that there aren't more that 2x the number of observations for "rise" compared to set (or vice versa)
+            skipped_list.append(dict(skipmode = 'nobs',
+                                        sza_bin = name)) #ifso, document and continue
+            continue
+        rise_row = group.loc[group['rise_set']=='rise'].squeeze() #get the rise data (squeeze gets the value)
+        set_row = group.loc[group['rise_set']=='set'].squeeze() #same with set
+        anom_dict = {f'{gas}_anom':(set_row[gas] - rise_row[gas]) for gas in gases} #subtract rise from set for that sza, for each species in the list
+        anom_dict.update({'sza_bin':name}) #update the dict with the sza bin
+        anom_dict.update({f'{gas}_error' : np.mean(group[f'{gas}_error']) for gas in gases}) #add the error (mean of the two)
+        anom_dict.update({f'{gas}_std' : np.mean(group[f'{gas}_std']) for gas in gases})
+        anom_dict.update({f'{gas}_surf_ak' : np.mean(group[f'{gas}_surf_ak']) for gas in gases})
+        anom_list.append(anom_dict) #append it to the list
+        
+    anom_df = pd.DataFrame(anom_list) #create the dataframe for the anomolie
+    if len(anom_df) > 0: #if there are entries in the anom df, add a sza midpoint for plotting
+        anom_df['sza_mid'] = anom_df.apply(lambda row: row['sza_bin'].mid,axis = 1)
+        for gas in gases:
+            anom_df = div_by_ak(anom_df,f'{gas}_anom',f'{gas}_surf_ak')
+            anom_df = div_by_ak(anom_df,f'{gas}_error',f'{gas}_surf_ak')
+            anom_df = div_by_ak(anom_df,f'{gas}_std',f'{gas}_surf_ak')
+        anom_df['co2_above_thresh']  = (anom_df['xco2(ppm)_anom'].max()- anom_df['xco2(ppm)_anom'].min())>co2_thresh
+    skipped_df = pd.DataFrame(skipped_list) #create the dataframe for why some sza's may have been skipped
+    return anom_df, skipped_df
+
+
+###################################################################################################################################
+# Define Classes
+###################################################################################################################################
 class oof_manager:
     '''Class to manage getting data from oof files'''
 
@@ -738,25 +833,6 @@ class oof_manager:
         inst_zasl = oof_df.iloc[0]['inst_zasl']
         return inst_lat,inst_lon,inst_zasl   
     
-def copy_em27_oofs_to_singlefolder(existing_results_path,oof_destination_path):
-    '''Copies oof files from the EM27 results path to a single directory
-    
-    Args:
-    existing_results_path (str) : path to the results folder. Within this folder should be a 'daily' and further date subfolders.
-    oof_destination_path (str) : path to the folder where the oof files will be copied
-    '''
-
-    files_to_transfer = []
-    daily_results_folder = os.path.join(existing_results_path,'daily') 
-    for datefolder in os.listdir(daily_results_folder):
-        for file in os.listdir(os.path.join(daily_results_folder,datefolder)):
-            if file.endswith('.vav.ada.aia.oof'):
-                full_filepath = os.path.join(daily_results_folder,datefolder,file)
-                files_to_transfer.append(full_filepath)
-    print('Copying Files')
-    for full_filepath in files_to_transfer:
-        shutil.copy(full_filepath,oof_destination_path)
-
 class ground_slant_handler:
     '''Class to handle getting slant column receptors'''
 
