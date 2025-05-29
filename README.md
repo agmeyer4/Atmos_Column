@@ -82,22 +82,20 @@ then
 
 # Visualization and Documentation
 
-Currently, two jupyter notebooks in atmos_column/ipynbs allow users to visualize data and understand how the code works
+I am in the process of updating the set of noteboooks that are used to visualize and document the work. The ones that are currently most useful are:
 
-## Viz_Dev.ipynb
+stilt_examiner.ipynb
+ - This notebook is used to visualize and analyze STILT output data, including footprints, receptor details, and more.
+
+Viz_Dev.ipynb
  - Working document for visualization
  - Interactive plotly figures for mapping receptors and their attributes
  - Step by step description for how receptors are created, analyzed, and saved
  - KML file creation for visualizing with Google Earth Pro
-
-## basic_figs.ipynb
- - Figure creator for basic figures such as EM27 and met data time series
- - Allows users to interactively view EM27 time series data, identify interesting days, annotate create and save plots, and more. 
 
 # Contact and Acknowledgements
 This work is being carried out under the direction of Dr. John C. Lin in the Land-Atmosphere Interactions Research (LAIR) group at the University of Utah, Atmospheric Sciences Department. 
 
 Please contact me directly with any questions or comments at agmeyer4@gmail.com. 
 
-Produced by Aaron G. Meyer, 2023
-x
+Produced by Aaron G. Meyer, 2025
