@@ -33,6 +33,7 @@ class run_config_obj:
         #self.get_lat_lon_zasl() #get the lat/lon/zasl -- will be just the config if column type is not em27, if it is it will be taken from oof
         self.split_dt_ranges = self.get_split_dt_ranges() #split the datetimes into daily ranges
         self.adjust_met() #adjust the met data to the correct format for the run
+        self.folder_paths['output_folder'] = os.path.join(self.folder_paths['Atmos_Column_folder'],'output') #set the output folder
 
     def adjust_met(self):
         '''Adjusts the met data to the correct format for the run'''
