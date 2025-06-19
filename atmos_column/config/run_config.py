@@ -11,23 +11,23 @@ import numpy as np
 import datetime
 import pytz
 import os
-import json
+import yaml
 
 class run_config_obj:
-    '''The main configs object. Used to store all of the necessary config parameters take from an input_config.json type file'''
+    '''The main configs object. Used to store all of the necessary config parameters take from an input_config.yaml type file'''
 
-    def __init__(self,config_path = None, config_json_fname='input_config.json'):
+    def __init__(self,config_path = None, config_yaml_fname='input_config.yaml'):
         '''
         Args:
-        config_json_fname (str) : name of the configuration file json. Should be in the same folder as this module, and default is input_config.json
+        config_yaml_fname (str) : name of the configuration file yaml. Should be in the same folder as this module, and default is input_config.yaml
         '''
         if config_path is None: #if the default is chosen
             config_path = os.path.dirname(__file__) #make the path the path where this was run, should be Atmos_Colum/atmos_column/config
-        self.config_json_fullpath = os.path.join(config_path,config_json_fname) #save the config file path
-        json_data = self.load_json() #load the json
-        for key in json_data: #for all of the elements in the json
-            setattr(self,key,json_data[key]) #set them as attributes in the class, to be accessed with self.key
-        self.start_dt = self.dtstr_to_dttz(self.start_dt_str,self.timezone) #the json datetime is a string, so convert it to a datetime
+        self.config_yaml_fullpath = os.path.join(config_path,config_yaml_fname) #save the config file path
+        yaml_data = self.load_yaml() #load the yaml
+        for key in yaml_data: #for all of the elements in the yaml
+            setattr(self,key,yaml_data[key]) #set them as attributes in the class, to be accessed with self.key
+        self.start_dt = self.dtstr_to_dttz(self.start_dt_str,self.timezone) #the yaml datetime is a string, so convert it to a datetime
         self.end_dt = self.dtstr_to_dttz(self.end_dt_str,self.timezone) #same for end datetime
         #self.folder_paths['hrrr_subset_path'] = os.path.join(self.folder_paths['hrrr_data_folder'],'subsets') #add the subset path for hrrr surface elevations
         #self.get_lat_lon_zasl() #get the lat/lon/zasl -- will be just the config if column type is not em27, if it is it will be taken from oof
@@ -49,12 +49,11 @@ class run_config_obj:
         else:
             self.folder_paths['met_folder'] =  self.run_stilt_configs['met_path'][1:-1] #had to put the path in quotes for the R script, so remove them here
         
-    def load_json(self):
-        '''Loads the json from the json filepath'''
-
-        with open(self.config_json_fullpath) as f:
-            json_data = json.load(f)
-        return json_data
+    def load_yaml(self):
+        '''Loads the yaml from the yaml filepath'''
+        with open(self.config_yaml_fullpath) as f:
+            yaml_data = yaml.safe_load(f)
+        return yaml_data
 
     def get_lat_lon_zasl(self):
         '''Sets the lat/lon/zasl to nan if the column type is em27. These values will then be set later in create_receptors to avoid confusion'''
@@ -103,7 +102,7 @@ class run_config_obj:
         return split_dt_list
 
 def main():
-    configs = run_config_obj(config_json_fname='input_config_minitest.json')
+    configs = run_config_obj(config_yaml_fname='input_config.yaml')
     print(configs.__dict__)
 
 if __name__=='__main__':
