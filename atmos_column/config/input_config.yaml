@@ -1,0 +1,98 @@
+# ===========================
+# The input_config.yaml (or whatever you name it) file is a YAML type file that contains
+# the configurations for running on your individual setup, as well as parameters necessary
+# to create the desired outputs. The format of this file should remain consistent, and variable
+# names should not be changed. Variable values can and should be changed to reflect your desired
+# outcome. These are described below. 
+# ===========================
+
+# column_type: A string with current options 'em27' or 'ground'. Option 'ground' is the generic
+#              version, and will create slant receptors for a ground based sensor given the in put params. 
+#              Option 'em27' will pull data from linked oof files to gather instrument location and timing 
+#              data for the run. 
+column_type: em27
+
+# interval: A string with synatx matching python's "freq" ('2H' = 2 hours, '5T' = 5 minutes). 
+#           This option will define the interval between start and end datetiems at which to create slant 
+#           column receptors. 
+interval: 1h
+
+# start_dt_str: A string with the start datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
+# end_dt_str: A string with the end datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
+start_dt_str: "2023-07-05 00:00:00"
+end_dt_str: "2023-07-07 23:00:00"
+
+# timezone : string of python timezone type ('UTC', 'US/Mountain') on which to operate. 
+#            This should usually be 'UTC', as EM27 data is often collected in 'UTC' time and working in UTC
+#            time eliminates misunderstandings. 
+timezone: 'UTC' 
+
+# inst_lat, inst_lon, inst_zasl: float decimal latitude, longitude, and altitude of the instrument location. Will 
+#                                be overwritten by the instrument data if column_type is 'em27'.
+inst_lat: 40.766
+inst_lon: -111.847
+inst_zasl: 1492
+
+# folder_paths: A dictionary of folder paths that are used in the run. These should be absolute paths.
+folder_paths:
+  base_project_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/ #Path containing at least the Atmos_Column git repo, but could be other things as well.
+  Atmos_Column_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column # Path to the Atmos_Column git repo.
+  column_data_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/ha # Path to the column data if using 'em27' column_type.
+  output_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output # Path to the output folder 
+  stilt_folder: /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3 # Path to the STILT run folder. This is where the STILT run will be executed.
+  dem_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/DEM # Path to the DEM folder. This is where the DEM file will be stored.
+  slurm_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/slurm # Path to the slurm folder. This is where the slurm files will be stored.
+  met_folder: stilt_parent # If the "download_met" option is set to "T", you can either set this to a folder path or leave it as 'stilt_parent'. 
+                          # If set to 'stilt_parent', the met data will be downloaded to the parent folder of the STILT run folder, in a folder named "met" that
+                          # will be created if it does not already exist. If set to a folder path, the met data will be downloaded to that folder.
+
+# z_ail_list: A list of altitudes in meters above instrument level (ail) at which to create slant column receptors.
+z_ail_list:
+  - 0
+  - 250
+  - 500
+  - 750
+  - 1000
+  - 1250
+  - 1500
+  - 1750
+  - 2000
+  - 2250
+  - 2500
+
+met_model_type: hrrr # The meteorological model type to use. Current options are 'hrrr'
+met_product: nat # The meteorological product to use. Current options are 'nat' for native HRRR data.
+download_met: "F" # Whether to download the meteorological data. If set to "T", the met data will be downloaded from the arl server.
+ftp_email: agmeyer4@gmail.com # The email address to use for the FTP download. This is required if download_met is set to "T".
+dem_fname: ASTGTM_NC.003_30m_aid0001_slcbig.nc # The name of the DEM file to use
+dem_typeid: aster # The type of DEM to use. Current options are 'aster' for ASTER GDEM.
+
+# slurm_options: A dictionary of slurm options to use for the STILT run. These are the same options that would be used in a slurm script.
+slurm_options:
+  nodes: 1
+  ntasks: 16
+  partition: lin-np
+  account: lin-np
+  time: "100:00:00"
+
+# run_stilt_lib_lines: A list of R library lines to run before the STILT run. These sometimes need to be added to ensure that the necessary libraries are loaded for the STILT run.
+#                     This is not always necessary, but can be useful if you are running into issues with missing libraries.
+run_stilt_lib_lines:
+  - library(raster)
+  - library(sp)
+  - library(terra)
+
+# run_stilt_configs: A dictionary of configurations for the STILT run. These are parameters that are in run_stilt.r that you want to change
+#                   for your specific run. Other parameters will be kept as their default values in the run_stilt.r file.
+run_stilt_configs:
+  met_path: "'/uufs/chpc.utah.edu/common/home/lin-group21/hrrr/hrrr'" #if download_met is set to "T", this will be reset in run_config to the "stilt_parent" or other defined folder. 
+  met_file_format: "'%Y%m%d_%H'"
+  xmn: -112.4
+  xmx: -110.8
+  ymn: 40.0
+  ymx: 41.4
+  xres: 0.01
+  yres: xres
+  n_hours: -24
+  numpar: 200
+  slurm: "F" #Set slurm to "F" here because we take care of the slurm submission in the main script.

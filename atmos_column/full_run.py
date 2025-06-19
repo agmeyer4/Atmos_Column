@@ -28,8 +28,8 @@ from config import run_config, structure_check
 import funcs.ac_funcs as ac
 
 def main():
-    config_json_fname = 'input_config_20230519.json'
-    configs = run_config.run_config_obj(config_json_fname=config_json_fname) #load configuration data from atmos_column/config
+    config_yaml_fname = 'input_config.yaml'
+    configs = run_config.run_config_obj(config_yaml_fname=config_yaml_fname) #load configuration data from atmos_column/config
     structure_check.directory_checker(configs,run=True) #check the structure
 
     slurm = ac.SlurmHandler(configs) #create a slurm handler from the configs
