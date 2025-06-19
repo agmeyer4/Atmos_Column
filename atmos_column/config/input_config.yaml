@@ -39,7 +39,7 @@ slurm_options:
   ntasks: 16
   partition: lin-np
   account: lin-np
-  time: 100:00:00
+  time: "100:00:00"
 run_stilt_lib_lines:
   - library(raster)
   - library(sp)

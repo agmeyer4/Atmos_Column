@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=16
-#SBATCH --partition=carbon-kp
-#SBATCH --account=carbon-kp
+#SBATCH --partition=lin-np
+#SBATCH --account=lin-np
 #SBATCH --time=100:00:00
 #SBATCH -o /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/slurm/logs/%A.out
 
@@ -10,7 +10,21 @@ SECONDS=0
 echo "
 -----------------------------
 "
-echo "Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/ha_wbb/20230519/r/ac_run_stilt.r"
-Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/ha_wbb/20230519/r/ac_run_stilt.r
+echo "Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3/20230705/r/ac_run_stilt.r"
+Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3/20230705/r/ac_run_stilt.r
+echo "Time since last = $SECONDS seconds"
+SECONDS=0
+echo "
+-----------------------------
+"
+echo "Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3/20230706/r/ac_run_stilt.r"
+Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3/20230706/r/ac_run_stilt.r
+echo "Time since last = $SECONDS seconds"
+SECONDS=0
+echo "
+-----------------------------
+"
+echo "Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3/20230707/r/ac_run_stilt.r"
+Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3/20230707/r/ac_run_stilt.r
 echo "Time since last = $SECONDS seconds"
 SECONDS=0
