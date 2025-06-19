@@ -9,14 +9,12 @@ Description: This module allows the user to do a "full run" of atmospheric colum
 4. Iterate through each day in the datetime range of the config file. For each day, steps 4-X will be carried out. 
 5. Create the receptors for the run. These are often slant columns for ground based instruments, filtered based on if 
    there is em27 data, or simply an hourly interval for ground data. Created receptors are stored in atmos_column/output/receptors.
-   Aircraft data is TODO. 
 6. The STILT model is structured and checked. This includes initializing the STILT project in the correct place if needed,
    rewriting the run_stilt.r script to match the created receptor files, and using any extra configs in the configuration file are 
    included in run_stilt. 
 7. Add the Rscript line for running stilt to the slurm submit script
 8. Ask if user wants to actually submit the slurm script.
 9. Submit if so, exit if not
-TODO dont define DEM every loop -- make as input to create receptors and only define once. 
 TODO apply the averaging kernel and pressure weighting functions
 TODO final analysis and storage 
 '''

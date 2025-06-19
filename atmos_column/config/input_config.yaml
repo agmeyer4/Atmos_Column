@@ -10,7 +10,7 @@
 #              version, and will create slant receptors for a ground based sensor given the in put params. 
 #              Option 'em27' will pull data from linked oof files to gather instrument location and timing 
 #              data for the run. 
-column_type: em27
+column_type: ground
 
 # interval: A string with synatx matching python's "freq" ('2H' = 2 hours, '5T' = 5 minutes). 
 #           This option will define the interval between start and end datetiems at which to create slant 
@@ -19,8 +19,8 @@ interval: 1h
 
 # start_dt_str: A string with the start datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
 # end_dt_str: A string with the end datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
-start_dt_str: "2023-07-05 00:00:00"
-end_dt_str: "2023-07-07 23:00:00"
+start_dt_str: "2023-07-06 00:00:00"
+end_dt_str: "2023-07-07 23:59:59"
 
 # timezone : string of python timezone type ('UTC', 'US/Mountain') on which to operate. 
 #            This should usually be 'UTC', as EM27 data is often collected in 'UTC' time and working in UTC
@@ -38,7 +38,6 @@ folder_paths:
   base_project_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/ #Path containing at least the Atmos_Column git repo, but could be other things as well.
   Atmos_Column_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column # Path to the Atmos_Column git repo.
   column_data_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/ha # Path to the column data if using 'em27' column_type.
-  output_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/output # Path to the output folder 
   stilt_folder: /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3 # Path to the STILT run folder. This is where the STILT run will be executed.
   dem_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/DEM # Path to the DEM folder. This is where the DEM file will be stored.
   slurm_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/slurm # Path to the slurm folder. This is where the slurm files will be stored.
