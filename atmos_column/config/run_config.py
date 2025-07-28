@@ -72,8 +72,12 @@ class run_config_obj:
         Returns:
         dt (datetime.datetime) : tz-aware datetime.datetime object corresponding to the inputs
         '''
-
-        dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
+        if isinstance(dt_str, str):
+            dt = datetime.datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
+        elif isinstance(dt_str, datetime.datetime):
+            dt = dt_str
+        else:
+            raise ValueError('Error: dt_str must be a string or datetime.datetime object')
         dt = pytz.timezone(timezone).localize(dt)
         return dt
 

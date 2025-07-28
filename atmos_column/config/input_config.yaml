@@ -19,13 +19,13 @@ interval: 1h
 
 # start_dt_str: A string with the start datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
 # end_dt_str: A string with the end datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
-start_dt_str: "2023-07-06 00:00:00"
-end_dt_str: "2023-07-07 23:59:59"
+start_dt_str: 2023-07-06 00:00:00
+end_dt_str: 2023-07-06 23:59:59
 
 # timezone : string of python timezone type ('UTC', 'US/Mountain') on which to operate. 
 #            This should usually be 'UTC', as EM27 data is often collected in 'UTC' time and working in UTC
 #            time eliminates misunderstandings. 
-timezone: 'UTC' 
+timezone: UTC
 
 # inst_lat, inst_lon, inst_zasl: float decimal latitude, longitude, and altitude of the instrument location. Will 
 #                                be overwritten by the instrument data if column_type is 'em27'.
@@ -38,7 +38,7 @@ folder_paths:
   base_project_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/ #Path containing at least the Atmos_Column git repo, but could be other things as well.
   Atmos_Column_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column # Path to the Atmos_Column git repo.
   column_data_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/EM27_oof/ha # Path to the column data if using 'em27' column_type.
-  stilt_folder: /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test3 # Path to the STILT run folder. This is where the STILT run will be executed.
+  stilt_folder: /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test # Path to the STILT run folder. This is where the STILT run will be executed.
   dem_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Data/DEM # Path to the DEM folder. This is where the DEM file will be stored.
   slurm_folder: /uufs/chpc.utah.edu/common/home/u0890904/LAIR_1/Atmos_Column/slurm # Path to the slurm folder. This is where the slurm files will be stored.
   met_folder: stilt_parent # If the "download_met" option is set to "T", you can either set this to a folder path or leave it as 'stilt_parent'. 
@@ -61,7 +61,7 @@ z_ail_list:
 
 met_model_type: hrrr # The meteorological model type to use. Current options are 'hrrr'
 met_product: nat # The meteorological product to use. Current options are 'nat' for native HRRR data.
-download_met: "F" # Whether to download the meteorological data. If set to "T", the met data will be downloaded from the arl server.
+download_met: F # Whether to download the meteorological data. If set to "T", the met data will be downloaded from the arl server.
 ftp_email: agmeyer4@gmail.com # The email address to use for the FTP download. This is required if download_met is set to "T".
 dem_fname: ASTGTM_NC.003_30m_aid0001_slcbig.nc # The name of the DEM file to use
 dem_typeid: aster # The type of DEM to use. Current options are 'aster' for ASTER GDEM.
@@ -70,9 +70,9 @@ dem_typeid: aster # The type of DEM to use. Current options are 'aster' for ASTE
 slurm_options:
   nodes: 1
   ntasks: 16
-  partition: lin-np
-  account: lin-np
-  time: "100:00:00"
+  partition: carbon-kp
+  account: carbon-kp
+  time: "100:00:00" # The time limit for the slurm job. This is in the format "HH:MM:SS" **with quotes**
 
 # run_stilt_lib_lines: A list of R library lines to run before the STILT run. These sometimes need to be added to ensure that the necessary libraries are loaded for the STILT run.
 #                     This is not always necessary, but can be useful if you are running into issues with missing libraries.
@@ -92,6 +92,7 @@ run_stilt_configs:
   ymx: 41.4
   xres: 0.01
   yres: xres
-  n_hours: -24
+  n_hours: -5
   numpar: 200
   slurm: "F" #Set slurm to "F" here because we take care of the slurm submission in the main script.
+  varsiwant: "c('time', 'indx', 'long', 'lati', 'zagl', 'foot', 'mlht', 'dens', 'samt', 'sigw', 'tlgr', 'pres')" #include pressure in the trajectory output

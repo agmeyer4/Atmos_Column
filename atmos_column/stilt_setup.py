@@ -211,32 +211,57 @@ class stilt_setup:
 
     def write_main_body(self, file, original_lines, run_stilt_configs):
         """
-        Write the main body of the R script, replacing config values as needed.
-
-        Args:
-            file (file object): The open file object to write to.
-            original_lines (list): List of lines from the original template.
-            run_stilt_configs (dict): Dictionary of config values to override in the script.
+        Write the main body of the R script, replacing config values as needed,
+        including skipping original multi-line assignments.
         """
-        for i in range(11, len(original_lines)):
-            # Skip the original receptor definitions (lines 22-37, 0-indexed)
-            if 21 < i < 38:
+        i = 11  # start of main body
+
+        while i < len(original_lines):
+            # Skip hardcoded block (receptor + slurm)
+            if 16 <= i <= 37:
+                i += 1
                 continue
+
             line = original_lines[i]
-            line_split = line.split()
-            if not line_split:
-                # Write blank lines as-is
+            stripped = line.strip()
+            tokens = stripped.split()
+
+            if not stripped:
                 file.write(line)
+                i += 1
                 continue
-            # Replace config values if the line matches a key in run_stilt_configs
-            if line_split[0] in run_stilt_configs and line_split[1] == '<-':
-                file.write(' '.join([line_split[0], line_split[1], str(run_stilt_configs[line_split[0]])]) + '\n')
-            # Special handling for simulation_id to use receptors$sim_id
-            elif line_split[0] == 'simulation_id' and line_split[1] == '<-':
-                file.write(' '.join([line_split[0], line_split[1], 'receptors$sim_id']) + '\n')
-            else:
-                # Write all other lines as-is
-                file.write(line)
+
+            # Check for variable assignment
+            if len(tokens) >= 3 and tokens[1] == '<-' and tokens[0] in run_stilt_configs:
+                key = tokens[0]
+                val = run_stilt_configs[key]
+                file.write(f"{key} <- {val}\n")
+
+                # Skip original assignment block (single- or multi-line)
+                # Start counting open and close parens
+                paren_diff = line.count('(') - line.count(')')
+                i += 1
+                while paren_diff > 0 and i < len(original_lines):
+                    next_line = original_lines[i]
+                    paren_diff += next_line.count('(') - next_line.count(')')
+                    i += 1
+                continue
+
+            # Special case for simulation_id
+            if len(tokens) >= 3 and tokens[0] == 'simulation_id' and tokens[1] == '<-':
+                file.write("simulation_id <- receptors$sim_id\n")
+                # Skip original simulation_id assignment (in case it's multiline)
+                paren_diff = line.count('(') - line.count(')')
+                i += 1
+                while paren_diff > 0 and i < len(original_lines):
+                    next_line = original_lines[i]
+                    paren_diff += next_line.count('(') - next_line.count(')')
+                    i += 1
+                continue
+
+            # Default: copy line as-is
+            file.write(line)
+            i += 1
 
     def receptor_path_line_creator(self, receptor_fnames):
         """
