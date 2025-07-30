@@ -1136,7 +1136,7 @@ class StiltReceptors:
         configs (obj, from config/run_config.run_config_obj()) : configuration parameters scraped from the input config file
         dt1 (datetime.datetime) : datetime object for use in naming. Necessary when creating a new receptor csv. Defaults none for loading
         dt2 (datetime.datetime) : datetime object for use in naming. Necessary when creating a new receptor csv. Defaults none for loading
-        path (str) : path to where either the receptor file should be written, or read from. Defaults none and set to output_folder/receptors/column_type
+        path (str) : path to where either the receptor file should be written, or read from. Defaults none and set to tmp_folder/receptors/column_type
         full_filepath (str) : if you want to give the full filepath directly, can do that
         '''
 
@@ -1144,7 +1144,7 @@ class StiltReceptors:
         self.dt1 = dt1
         self.dt2 = dt2
         if path is None:
-            path = os.path.join(self.configs.folder_paths['output_folder'],'receptors',self.configs.column_type) #get the path, including the column type, where receptor csv will be stored
+            path = os.path.join(self.configs.folder_paths['tmp_folder'],'receptors',self.configs.column_type) #get the path, including the column type, where receptor csv will be stored
         if not os.path.isdir(path):
             raise Exception(f'Invalid path {path}, nothin there.')
         

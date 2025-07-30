@@ -10,7 +10,7 @@ method for creating receptor files based on the type of data you want.
 
 To use in standalone mode, note that running <python create_receptors.py> will grab configuration settings from the input_config file defined in main()
 All parameter can be changed in the input config and the result of running <python create_receptors.py> will be the creation of receptor
-files in output/receptors. See main() for detailed code description. 
+files in tmp/receptors. See main() for detailed code description. 
 '''
 
 #Import
@@ -35,11 +35,11 @@ class receptor_creator:
     
     def create_receptors(self,my_dem_handler):
         '''
-        Creates the receptors and saves them to the correct output/receptors folder based on column type and other configs
+        Creates the receptors and saves them to the correct tmp/receptors folder based on column type and other configs
         TODO: Add more types of receptor creators (methaneAIR, satellites, etc)        
         '''
 
-        print(f"Creating receptors and saving to {self.configs.folder_paths['output_folder']}")
+        print(f"Creating receptors and saving to {self.configs.folder_paths['tmp_folder']}")
         if self.configs.column_type == 'ground':
             return self.ground_rec_creator(my_dem_handler)
         elif self.configs.column_type == 'em27':
@@ -105,7 +105,7 @@ class receptor_creator:
 def main():
     '''
     Main run using <python create_receptors.py> will load the configs and create the receptors in 
-    output/receptors/{column_type}/YYYYmmdd_HHMMSS_HHMMSS.csv for each day in the config range. 
+    tmp/receptors/{column_type}/YYYYmmdd_HHMMSS_HHMMSS.csv for each day in the config range. 
     '''
     config_yaml_fname = 'input_config.yaml'
     configs = run_config.run_config_obj(config_yaml_fname=config_yaml_fname) #load the configs

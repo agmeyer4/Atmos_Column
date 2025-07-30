@@ -8,7 +8,7 @@ Description: This module allows the user to do a "full run" of atmospheric colum
 3. Setup the slurm submit script for running stilt, write its header
 4. Iterate through each day in the datetime range of the config file. For each day, steps 4-X will be carried out. 
 5. Create the receptors for the run. These are often slant columns for ground based instruments, filtered based on if 
-   there is em27 data, or simply an hourly interval for ground data. Created receptors are stored in atmos_column/output/receptors.
+   there is em27 data, or simply an hourly interval for ground data. Created receptors are stored in atmos_column/tmp/receptors.
 6. The STILT model is structured and checked. This includes initializing the STILT project in the correct place if needed,
    rewriting the run_stilt.r script to match the created receptor files, and using any extra configs in the configuration file are 
    included in run_stilt. 

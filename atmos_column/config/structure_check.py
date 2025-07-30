@@ -31,7 +31,7 @@ class directory_checker:
 
         print('Checking Paths')
         self.check_base_existence() #make sure base paths exist
-        self.check_output() #make sure the output strucutre is correct
+        self.check_tmp() #make sure the tmp strucutre is correct
         #self.check_hrrr_subset() #make sure the hrrr subset folder is correct
 
     def check_base_existence(self):
@@ -41,14 +41,14 @@ class directory_checker:
             if not os.path.isdir(path):
                     raise FileNotFoundError(f'Path not found for {key} at {path} Check to ensure your paths are correctly configured in configs/run_config.py.')
 
-    def check_output(self):
-        '''Checks and configures the output folder'''
-        output_path = self.configs.folder_paths['output_folder'] #here's the output path from the configs file
-        if not os.path.isdir(os.path.join(output_path,'receptors')): #within output there should be a receptos folder
-            os.mkdir(os.path.join(output_path,'receptors')) #so if there isn't, make one
+    def check_tmp(self):
+        '''Checks and configures the tmp folder'''
+        tmp_path = self.configs.folder_paths['tmp_folder'] #here's the tmp path from the configs file
+        if not os.path.isdir(os.path.join(tmp_path,'receptors')): #within tmp there should be a receptos folder
+            os.mkdir(os.path.join(tmp_path,'receptors')) #so if there isn't, make one
         for column_type in self.column_options: #there should also be a subfolder within receptors for each of the possible column types
-            if not os.path.isdir(os.path.join(output_path,'receptors',column_type)): #so if there isn't,
-                os.mkdir(os.path.join(output_path,'receptors',column_type)) #make one
+            if not os.path.isdir(os.path.join(tmp_path,'receptors',column_type)): #so if there isn't,
+                os.mkdir(os.path.join(tmp_path,'receptors',column_type)) #make one
 
     def check_hrrr_subset(self):
         '''Check and configure the hrrr subset folder for getting the surface heights. '''

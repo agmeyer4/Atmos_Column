@@ -129,7 +129,7 @@ dmypy.json
 .pyre/
 
 .DS_Store
-output/*
+tmp/*
 atmos_column/temp/*
 slurm/logs/*
 !*.gitkeep

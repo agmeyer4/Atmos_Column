@@ -91,9 +91,9 @@ class stilt_setup:
         os.mkdir(config_folder)
 
     def find_receptor_files(self):
-        '''Finds the receptor files in output/receptors/{column_type} that match the datetime range criteria'''
+        '''Finds the receptor files in tmp/receptors/{column_type} that match the datetime range criteria'''
         receptor_fnames = []
-        receptor_path = os.path.join(self.configs.folder_paths['output_folder'], 'receptors', self.configs.column_type)
+        receptor_path = os.path.join(self.configs.folder_paths['tmp_folder'], 'receptors', self.configs.column_type)
         daystrings_inrange = self.get_datestrings_inrange()
         for file in os.listdir(receptor_path):
             for daystring in daystrings_inrange:
@@ -113,7 +113,7 @@ class stilt_setup:
     def mv_recfile_to_stiltdir(self, receptor_fnames):
         '''Moves the receptor file to the appropriate directory within the STILT project folder'''
         for receptor_fname in receptor_fnames:
-            os.popen(f"mv {os.path.join(self.configs.folder_paths['output_folder'], 'receptors', self.configs.column_type, receptor_fname)} {os.path.join(self.configs.folder_paths['stilt_folder'], self.stilt_name, 'receptors', receptor_fname)}")
+            os.popen(f"mv {os.path.join(self.configs.folder_paths['tmp_folder'], 'receptors', self.configs.column_type, receptor_fname)} {os.path.join(self.configs.folder_paths['stilt_folder'], self.stilt_name, 'receptors', receptor_fname)}")
 
     def cp_configfile_to_stiltdir(self):
         '''Copies the configuration file from the local config path to the STILT project folder for reference'''
@@ -130,10 +130,8 @@ class stilt_setup:
         original_run_stilt_filepath = os.path.join(
             self.configs.folder_paths['stilt_folder'], self.stilt_name, 'r', 'run_stilt.r'
         )
-        new_run_stilt_filepath = os.path.join(
-            self.configs.folder_paths['base_project_folder'],
-            'Atmos_Column', 'atmos_column', 'temp', 'ac_run_stilt.r'
-        )
+        new_run_stilt_filepath = os.path.join(self.configs.folder_paths['tmp_folder'], 'ac_run_stilt.r')
+
         receptor_loader_filepath = os.path.join(
             self.configs.folder_paths['base_project_folder'],
             'Atmos_Column', 'atmos_column', 'funcs', 'receptor_loader.r'
@@ -282,9 +280,7 @@ class stilt_setup:
     def move_new_runstilt(self):
         '''Moves the newly written ac_run_stilt.r file to the stilt project directory'''
         print('Moving new ac_run_stilt.r to the STILT directory')
-        new_run_stilt_path = os.path.join(
-            self.configs.folder_paths['base_project_folder'], 'Atmos_Column', 'atmos_column', 'temp'
-        )
+        new_run_stilt_path = self.configs.folder_paths['tmp_folder']
         new_run_stilt_fname = 'ac_run_stilt.r'
         official_run_stilt_path = os.path.join(
             self.configs.folder_paths['stilt_folder'], self.stilt_name, 'r'
