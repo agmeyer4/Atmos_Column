@@ -19,13 +19,13 @@ interval: 1h
 
 # start_dt_str: A string with the start datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
 # end_dt_str: A string with the end datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
-start_dt_str: 2023-07-06 00:00:00
-end_dt_str: 2023-07-06 23:59:59
+start_dt_str: 2023-07-09 00:00:00
+end_dt_str: 2023-07-09 23:59:59
 
 # timezone : string of python timezone type ('UTC', 'US/Mountain') on which to operate. 
 #            This should usually be 'UTC', as EM27 data is often collected in 'UTC' time and working in UTC
 #            time eliminates misunderstandings. 
-timezone: UTC
+timezone: US/Mountain
 
 # inst_lat, inst_lon, inst_zasl: float decimal latitude, longitude, and altitude of the instrument location. Will 
 #                                be overwritten by the instrument data if column_type is 'em27'.
@@ -80,6 +80,7 @@ run_stilt_lib_lines:
   - library(raster)
   - library(sp)
   - library(terra)
+  - library(lubridate)
 
 # run_stilt_configs: A dictionary of configurations for the STILT run. These are parameters that are in run_stilt.r that you want to change
 #                   for your specific run. Other parameters will be kept as their default values in the run_stilt.r file.
