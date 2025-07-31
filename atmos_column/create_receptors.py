@@ -59,7 +59,7 @@ class receptor_creator:
         print(f'Column type is "em27". Slant columns will be created for datetimes with existing oof files')
         print(f'Instrument lat/lon/zasl will be taken from oof files')
 
-        my_oof_manager = ac.oof_manager(self.configs.folder_paths['column_data_folder'],self.configs.timezone) #create the oof manager
+        my_oof_manager = ac.oof_manager(self.configs.folder_paths['column_data_folder'],'UTC') #create the oof manager, use UTC to ensure consistency with stilt
         oof_df = my_oof_manager.load_oof_df_inrange(self.dt1,self.dt2) #load the oof data in the required range
         if len(oof_df) == 0: #if there isn't any oof data in that range
             print(f'No oof data for {self.dt1} to {self.dt2}') #tell us
@@ -73,7 +73,6 @@ class receptor_creator:
         dt2_oof = oof_df.index[-1].ceil(self.configs.interval) #ceil is rounding up to the nearest interval
         if dt2_oof > self.dt2: #we don't want to go past dt2
             dt2_oof = self.dt2 #so set it equal if the last dt in the oof file is bigger -- this happens when it runs past midnight often
-
         stilt_rec = ac.StiltReceptors(self.configs,self.dt1,self.dt2) #initilize the stilt receptor instance
         stilt_rec.create_for_stilt() #create the file and write the header
         slant_df = gsh.run_slant_at_intervals(dt1_oof,dt2_oof,my_dem_handler,interval=self.configs.interval) #Get the slant column between the oof datetimes

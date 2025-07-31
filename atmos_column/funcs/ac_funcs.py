@@ -321,21 +321,24 @@ def pdcol_is_equal(pdcol):
     a = pdcol.to_numpy()
     return (a[0]==a).all()
 
-def create_dt_list(dt1,dt2,interval):
+def create_dt_list(dt1, dt2, interval):
     '''Creates a list of datetime elements within the range subject to an input interval
-    
+
     Args:
-    dt1 (datetime.datetime) : start datetime
-    dt2 (datetime.datetime) : end datetime
-    interval (str) : interval string like "1H", "2T" etc
-    
+    dt1 (datetime.datetime): start datetime (can be tz-aware or naive)
+    dt2 (datetime.datetime): end datetime (must match dt1's tz)
+    interval (str): interval string like "1H", "2T" etc
+
     Returns:
-    dt_list (list) : list of datetimes at the input interval between dt1 and dt2 inclusive
+    dt_list (list): list of datetimes at the input interval between dt1 and dt2 inclusive
     '''
 
-    dt_index = pd.date_range(dt1,dt2,freq=interval)
-    dt_list = list(dt_index)
-    return dt_list
+    # If both are tz-aware, preserve timezone in range
+    if dt1.tzinfo is not None and dt2.tzinfo is not None:
+        dt_index = pd.date_range(dt1, dt2, freq=interval, tz=dt1.tzinfo)
+    else:
+        dt_index = pd.date_range(dt1, dt2, freq=interval)
+    return list(dt_index)
 
 def dtstr_to_dttz(dt_str,timezone):
     '''Gets a datetime from a string and timezone
