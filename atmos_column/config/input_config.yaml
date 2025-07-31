@@ -10,7 +10,7 @@
 #              version, and will create slant receptors for a ground based sensor given the in put params. 
 #              Option 'em27' will pull data from linked oof files to gather instrument location and timing 
 #              data for the run. 
-column_type: em27
+column_type: ground
 
 # interval: A string with synatx matching python's "freq" ('2H' = 2 hours, '5T' = 5 minutes). 
 #           This option will define the interval between start and end datetiems at which to create slant 
@@ -19,13 +19,15 @@ interval: 1h
 
 # start_dt_str: A string with the start datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
 # end_dt_str: A string with the end datetime of the run in the format 'YYYY-MM-DD HH:MM:SS'.
-start_dt_str: 2023-07-06 00:00:00
-end_dt_str: 2023-07-09 23:59:59
+start_dt_str: 2023-07-08 00:00:00
+end_dt_str: 2023-07-08 23:59:59
 
 # timezone : string of python timezone type ('UTC', 'US/Mountain') on which to operate. 
 #            This should usually be 'UTC', as EM27 data is often collected in 'UTC' time and working in UTC
-#            time eliminates misunderstandings. 
-timezone: US/Mountain
+#            time eliminates misunderstandings. Be advised, when using anything other than 'UTC', most of the 
+#            data will be converted to UTC time for use with STILT. This config parameter is more used to 
+#            set the timezone for viewing data, not necessarily for file labeling. 
+timezone: UTC
 
 # inst_lat, inst_lon, inst_zasl: float decimal latitude, longitude, and altitude of the instrument location. Will 
 #                                be overwritten by the instrument data if column_type is 'em27'.
@@ -57,7 +59,6 @@ z_ail_list:
   - 1750
   - 2000
   - 2250
-  - 2500
 
 met_model_type: hrrr # The meteorological model type to use. Current options are 'hrrr'
 met_product: nat # The meteorological product to use. Current options are 'nat' for native HRRR data.
@@ -93,7 +94,7 @@ run_stilt_configs:
   ymx: 41.4
   xres: 0.01
   yres: xres
-  n_hours: -5
+  n_hours: -72
   numpar: 200
   slurm: "F" #Set slurm to "F" here because we take care of the slurm submission in the main script.
   varsiwant: "c('time', 'indx', 'long', 'lati', 'zagl', 'foot', 'mlht', 'dens', 'samt', 'sigw', 'tlgr', 'pres')" #include pressure in the trajectory output
