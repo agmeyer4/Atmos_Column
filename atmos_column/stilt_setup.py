@@ -19,7 +19,7 @@ class stilt_setup:
     def __init__(self, configs, dt1, dt2, stilt_name=None):
         '''
         Args:
-        configs (obj of type run_config_obj): configurations from a config yaml file to use 
+        configs (obj of type StiltConfig): configurations from a config yaml file to use 
         dt1 (datetime.datetime): start datetime
         dt2 (datetime.datetime): end datetime
         stilt_name (str): name of the STILT project to go inside the configs.folder_paths['stilt_folder']. Default='YYYYMMDD' of dt1
@@ -303,9 +303,10 @@ class stilt_setup:
 
 def main():
     '''This main function will setup the stilt project using the configuration file'''
-    from config import run_config, structure_check
+    from config import structure_check
+    from funcs import stilt_utils
     config_yaml_fname = 'input_config.yaml'
-    configs = run_config.run_config_obj(config_yaml_fname=config_yaml_fname)
+    configs = stilt_utils.StiltConfig(config_yaml_fname=config_yaml_fname)
     structure_check.directory_checker(configs, run=True)
 
     for dt_range in configs.split_dt_ranges:  # iterate by day

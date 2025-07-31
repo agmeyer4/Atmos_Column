@@ -22,12 +22,13 @@ TODO final analysis and storage
 #Import necessary packages
 import create_receptors as cr
 import stilt_setup as ss
-from config import run_config, structure_check
+from config import structure_check
 import funcs.ac_funcs as ac
+from funcs import stilt_utils
 
 def main():
     config_yaml_fname = 'input_config.yaml'
-    configs = run_config.run_config_obj(config_yaml_fname=config_yaml_fname) #load configuration data from atmos_column/config
+    configs = stilt_utils.StiltConfig(config_yaml_fname=config_yaml_fname) #load configuration data from atmos_column/config
     structure_check.directory_checker(configs,run=True) #check the structure
 
     slurm = ac.SlurmHandler(configs) #create a slurm handler from the configs
@@ -36,7 +37,7 @@ def main():
     my_dem_handler = ac.DEM_handler(configs.folder_paths['dem_folder'],configs.dem_fname,configs.dem_typeid) #define the DEM
     print('\n---------------------------------------------------------------\n') #ad a demarcation between dates
 
-    for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during run_config.run_config_obj()
+    for dt_range in configs.split_dt_ranges: #go day by day using the split datetime ranges created during stilt_utils.StiltConfig
         print(f"{dt_range['dt1']} to {dt_range['dt2']}") 
         rec_creator_inst = cr.receptor_creator(configs,dt_range['dt1'],dt_range['dt2']) #Create the receptor creator class
         rec_creator_response = rec_creator_inst.create_receptors(my_dem_handler) #create the receptors

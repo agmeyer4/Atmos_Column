@@ -16,7 +16,7 @@ class directory_checker:
     def __init__(self,configs,run=False,column_options=['ground','em27']):
         '''
         Args:
-        configs (obj of type run_config_obj) : configuration settings 
+        configs (obj of type StiltConfig) : configuration settings 
         run (bool) : if true, run the full check. Default False
         column_options (list) : list of column types that are possible
         '''
@@ -39,7 +39,7 @@ class directory_checker:
 
         for key,path in self.configs.folder_paths.items():
             if not os.path.isdir(path):
-                    raise FileNotFoundError(f'Path not found for {key} at {path} Check to ensure your paths are correctly configured in configs/run_config.py.')
+                    raise FileNotFoundError(f'Path not found for {key} at {path} Check to ensure your paths are correctly configured in the input file')
 
     def check_tmp(self):
         '''Checks and configures the tmp folder'''
@@ -56,9 +56,7 @@ class directory_checker:
             os.mkdir(os.path.join(self.configs.folder_paths['hrrr_data_folder'],'subsets'))
 
 def main():
-    # configs = run_config.run_config_obj #load the configs 
-    # dir_check = directory_checker(configs)
-    # dir_check.full_check()
+
     pass
 
 if __name__=='__main__':

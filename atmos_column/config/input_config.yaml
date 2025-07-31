@@ -85,7 +85,7 @@ run_stilt_lib_lines:
 # run_stilt_configs: A dictionary of configurations for the STILT run. These are parameters that are in run_stilt.r that you want to change
 #                   for your specific run. Other parameters will be kept as their default values in the run_stilt.r file.
 run_stilt_configs:
-  met_path: "'/uufs/chpc.utah.edu/common/home/lin-group21/hrrr/hrrr'" #if download_met is set to "T", this will be reset in run_config to the "stilt_parent" or other defined folder. 
+  met_path: "'/uufs/chpc.utah.edu/common/home/lin-group21/hrrr/hrrr'" #if download_met is set to "T", this will be reset in StiltConfig to the "stilt_parent" or other defined folder. 
   met_file_format: "'%Y%m%d_%H'"
   xmn: -112.4
   xmx: -110.8

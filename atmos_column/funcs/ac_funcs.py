@@ -1039,7 +1039,7 @@ class SlurmHandler:
     def __init__(self,configs,custom_submit_name = None):
         '''
         Args:
-        configs (obj of type run_config_obj) : configurations from a config json file to use 
+        configs (obj of type StiltConfig) : configurations from a config json file to use 
         custom_submit_name (str) : if you would like a custom job submission name, define it here. Will default None to 'submit.sh'
         '''
         self.configs = configs #grabs everything from the configs
@@ -1133,7 +1133,7 @@ class StiltReceptors:
         '''Initialize the class with configs as the necessary argument
         
         Args:
-        configs (obj, from config/run_config.run_config_obj()) : configuration parameters scraped from the input config file
+        configs (obj, StiltConfig) : configuration parameters scraped from the input config file
         dt1 (datetime.datetime) : datetime object for use in naming. Necessary when creating a new receptor csv. Defaults none for loading
         dt2 (datetime.datetime) : datetime object for use in naming. Necessary when creating a new receptor csv. Defaults none for loading
         path (str) : path to where either the receptor file should be written, or read from. Defaults none and set to tmp_folder/receptors/column_type

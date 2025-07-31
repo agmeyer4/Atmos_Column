@@ -14,3 +14,10 @@ echo "Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test/202
 Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test/20230709/r/ac_run_stilt.r
 echo "Time since last = $SECONDS seconds"
 SECONDS=0
+echo "
+-----------------------------
+"
+echo "Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test/20230710/r/ac_run_stilt.r"
+Rscript /uufs/chpc.utah.edu/common/home/lin-group9/agm/STILT_runs/test/20230710/r/ac_run_stilt.r
+echo "Time since last = $SECONDS seconds"
+SECONDS=0

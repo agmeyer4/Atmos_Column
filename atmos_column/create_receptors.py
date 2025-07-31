@@ -15,7 +15,8 @@ files in tmp/receptors. See main() for detailed code description.
 
 #Import
 from funcs import ac_funcs as ac
-from config import run_config, structure_check
+from funcs import stilt_utils
+from config import structure_check
 
 class receptor_creator:
     '''
@@ -25,7 +26,7 @@ class receptor_creator:
     def __init__(self,configs,dt1,dt2):
         '''
         Args:
-        configs (obj, from config/run_config.run_config_obj()) : configuration parameters scraped from the input config file
+        configs (obj, StiltConfig) : configuration parameters scraped from the input config file
         dt1 (datetime.datetime) : beginning datetime
         dt2 (datetime.datetime) : ending datetime 
         '''
@@ -108,7 +109,7 @@ def main():
     tmp/receptors/{column_type}/YYYYmmdd_HHMMSS_HHMMSS.csv for each day in the config range. 
     '''
     config_yaml_fname = 'input_config.yaml'
-    configs = run_config.run_config_obj(config_yaml_fname=config_yaml_fname) #load the configs
+    configs = stilt_utils.StiltConfig(config_yaml_fname=config_yaml_fname) #load the configs
     structure_check.directory_checker(configs,run=True) #check the structure
     my_dem_handler = ac.DEM_handler(configs.folder_paths['dem_folder'],configs.dem_fname,configs.dem_typeid)
     for dt_range in configs.split_dt_ranges: #iterate by day
